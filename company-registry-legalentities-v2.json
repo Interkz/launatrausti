@@ -1,0 +1,543 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Company Registry - Public Api",
+        "description": "A public facing API interface to lookup information from Icelandic Company Registry",
+        "termsOfService": "https://www.skatturinn.is",
+        "contact": {
+            "name": "Skatturinn",
+            "email": "api@skatturinn.is"
+        },
+        "version": "v2"
+    },
+    "servers": [
+        {
+            "url": "https://api.skattur.cloud/legalentities/v2"
+        }
+    ],
+    "paths": {
+        "/{nationalId}": {
+            "get": {
+                "tags": [
+                    "LegalEntities"
+                ],
+                "summary": "/{nationalId} - GET",
+                "description": "/{nationalId} - GET",
+                "operationId": "get-legalentity",
+                "parameters": [
+                    {
+                        "name": "nationalId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegalEntity"
+                                },
+                                "example": {
+                                    "nationalId": "string",
+                                    "name": "string",
+                                    "additionalName": "string",
+                                    "purposeOfEntity": "string",
+                                    "initialCapital": 0,
+                                    "accountingYear": "string",
+                                    "dateOfBylaws": "string",
+                                    "dateOfAgreements": "string",
+                                    "dateOfBoardChange": "string",
+                                    "registered": "string",
+                                    "status": "string",
+                                    "deregistration": {
+                                        "deregistered": true,
+                                        "deregistrationDate": "string",
+                                        "bankrupcy": true,
+                                        "bankrupcyDate": "string",
+                                        "insolvency": true,
+                                        "insolvencyDate": "string"
+                                    },
+                                    "legalForm": {
+                                        "id": "string",
+                                        "name": "string"
+                                    },
+                                    "registryComment": "string",
+                                    "articlesOfAssociation": {
+                                        "shareCapital": 0,
+                                        "shareGroup": "string",
+                                        "shareCapitalCurrency": "string",
+                                        "signatures": "string",
+                                        "votingRights": "string",
+                                        "restrictionHandlingOfShares": true,
+                                        "liabilityForRedemptionOfShares": true,
+                                        "specialRights": true,
+                                        "lastUpdated": "string"
+                                    },
+                                    "activityCode": [
+                                        {
+                                            "type": {
+                                                "name": "string"
+                                            },
+                                            "codeSystem": "string",
+                                            "id": "string",
+                                            "name": "string"
+                                        }
+                                    ],
+                                    "vat": [
+                                        {
+                                            "vatNumber": "string",
+                                            "registered": "string",
+                                            "deRegistered": "string",
+                                            "activityCode": {
+                                                "type": {
+                                                    "name": "string"
+                                                },
+                                                "codeSystem": "string",
+                                                "id": "string",
+                                                "name": "string"
+                                            }
+                                        }
+                                    ],
+                                    "address": [
+                                        {
+                                            "type": {
+                                                "name": "string"
+                                            },
+                                            "addressName": "string",
+                                            "attention": "string",
+                                            "postcode": "string",
+                                            "city": "string",
+                                            "isPostbox": true,
+                                            "country": "string",
+                                            "municipalityId": "string",
+                                            "municipality": "string"
+                                        }
+                                    ],
+                                    "relationships": [
+                                        {
+                                            "type": "string",
+                                            "position": "string",
+                                            "nationalId": "string",
+                                            "name": "string",
+                                            "address": {
+                                                "type": {
+                                                    "name": "string"
+                                                },
+                                                "addressName": "string",
+                                                "attention": "string",
+                                                "postcode": "string",
+                                                "city": "string",
+                                                "isPostbox": true,
+                                                "country": "string",
+                                                "municipalityId": "string",
+                                                "municipality": "string"
+                                            }
+                                        }
+                                    ],
+                                    "links": [
+                                        {
+                                            "rel": "string",
+                                            "href": "string"
+                                        }
+                                    ],
+                                    "lastUpdated": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{nationalId}/overview": {
+            "get": {
+                "tags": [
+                    "LegalEntities"
+                ],
+                "summary": "/{nationalId}/overview - GET",
+                "description": "/{nationalId}/overview - GET",
+                "operationId": "get-legalentity-pdf-overview",
+                "parameters": [
+                    {
+                        "name": "nationalId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/pdf": {}
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ActivityCode": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/ActivityCodeType"
+                    },
+                    "codeSystem": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "ActivityCodeType": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "Address": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/AddressType"
+                    },
+                    "addressName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "attention": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "postcode": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "city": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "isPostbox": {
+                        "type": "boolean"
+                    },
+                    "country": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "municipalityId": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "municipality": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "AddressType": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "ArticlesOfAssociation": {
+                "type": "object",
+                "properties": {
+                    "shareCapital": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "shareGroup": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "shareCapitalCurrency": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "signatures": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "votingRights": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "restrictionHandlingOfShares": {
+                        "type": "boolean"
+                    },
+                    "liabilityForRedemptionOfShares": {
+                        "type": "boolean"
+                    },
+                    "specialRights": {
+                        "type": "boolean"
+                    },
+                    "lastUpdated": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "Deregistration": {
+                "type": "object",
+                "properties": {
+                    "deregistered": {
+                        "type": "boolean"
+                    },
+                    "deregistrationDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "bankrupcy": {
+                        "type": "boolean"
+                    },
+                    "bankrupcyDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "insolvency": {
+                        "type": "boolean"
+                    },
+                    "insolvencyDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LegalEntity": {
+                "type": "object",
+                "properties": {
+                    "nationalId": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "additionalName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "purposeOfEntity": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "initialCapital": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "accountingYear": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "dateOfBylaws": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "dateOfAgreements": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "dateOfBoardChange": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "registered": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "deregistration": {
+                        "$ref": "#/components/schemas/Deregistration"
+                    },
+                    "legalForm": {
+                        "$ref": "#/components/schemas/LegalForm"
+                    },
+                    "registryComment": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "articlesOfAssociation": {
+                        "$ref": "#/components/schemas/ArticlesOfAssociation"
+                    },
+                    "activityCode": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActivityCode"
+                        },
+                        "nullable": true
+                    },
+                    "vat": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Vat"
+                        },
+                        "nullable": true
+                    },
+                    "address": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Address"
+                        },
+                        "nullable": true
+                    },
+                    "relationships": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Relationships"
+                        },
+                        "nullable": true
+                    },
+                    "links": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Links"
+                        },
+                        "nullable": true
+                    },
+                    "lastUpdated": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LegalForm": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "Links": {
+                "type": "object",
+                "properties": {
+                    "rel": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "href": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "Relationships": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "position": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "nationalId": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "address": {
+                        "$ref": "#/components/schemas/Address"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "Vat": {
+                "type": "object",
+                "properties": {
+                    "vatNumber": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "registered": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "deRegistered": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "activityCode": {
+                        "$ref": "#/components/schemas/ActivityCode"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "Ocp-Apim-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}

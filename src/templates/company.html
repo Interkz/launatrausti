@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.name }} - Launatrausti{% endblock %}
+
+{% block content %}
+<a href="/" class="back-link">← Back to rankings</a>
+
+<div class="company-header">
+    <h1>{{ company.name }}</h1>
+    <p class="kennitala">Kennitala: {{ company.kennitala }}</p>
+</div>
+
+<div class="stats">
+    {% if reports %}
+    {% set latest = reports[0] %}
+    <div class="stat-card">
+        <div class="label">Latest Avg Monthly</div>
+        <div class="value">{{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Latest Avg Annual</div>
+        <div class="value">{{ "{:,.0f}".format(latest.avg_salary).replace(",", ".") }} kr</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Employees ({{ latest.year }})</div>
+        <div class="value">{{ "{:,.0f}".format(latest.starfsmenn).replace(",", ".") }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total Wage Costs</div>
+        <div class="value">{{ "{:,.0f}".format(latest.launakostnadur // 1000000).replace(",", ".") }}M kr</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Annual Reports</h2>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Year</th>
+                <th>Avg Monthly Salary</th>
+                <th>Avg Annual Salary</th>
+                <th>Employees</th>
+                <th>Total Wage Costs</th>
+                <th>Revenue</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.year }}</td>
+                <td class="salary">{{ "{:,.0f}".format(report.avg_salary // 12).replace(",", ".") }} kr</td>
+                <td>{{ "{:,.0f}".format(report.avg_salary).replace(",", ".") }} kr</td>
+                <td>{{ "{:,.0f}".format(report.starfsmenn).replace(",", ".") }}</td>
+                <td>{{ "{:,.0f}".format(report.launakostnadur // 1000000).replace(",", ".") }}M kr</td>
+                <td>{% if report.tekjur %}{{ "{:,.0f}".format(report.tekjur // 1000000).replace(",", ".") }}M kr{% else %}-{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                    No annual reports found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if reports|length > 1 %}
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-header">
+        <h2>Salary Trend</h2>
+    </div>
+    <div style="padding: 1.5rem;">
+        {% set first = reports[-1] %}
+        {% set latest = reports[0] %}
+        {% set change = ((latest.avg_salary - first.avg_salary) / first.avg_salary * 100) if first.avg_salary else 0 %}
+        <p>
+            From {{ first.year }} to {{ latest.year }}:
+            <strong style="color: {% if change >= 0 %}var(--success){% else %}#ef4444{% endif %}">
+                {% if change >= 0 %}+{% endif %}{{ "{:.1f}".format(change) }}%
+            </strong>
+            change in average salary.
+        </p>
+        <p style="margin-top: 0.5rem; color: var(--text-secondary);">
+            {{ first.year }}: {{ "{:,.0f}".format(first.avg_salary // 12).replace(",", ".") }} kr/month →
+            {{ latest.year }}: {{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr/month
+        </p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

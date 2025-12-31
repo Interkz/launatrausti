@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets - DO NOT COMMIT
+api.txt
+.env.local
+.env.production
+
+# Local files
+*.log
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# PDFs (large files)
+pdfs/*.pdf
+
+# Keep the database for Vercel deployment
+# !launatrausti.db

@@ -1,0 +1,17 @@
+levels.fyi and sites like it
+
+i want to create one for iceland using a new method where i take yearly reports from companies and use wage cost and number of employees to guess wages and track year by year how much its progressing based off of its change
+
+ive also thought about using union reports to to try and guess the wage diffrence between roles at the company given that they report wages based off titles
+
+and also hagstofan has data
+
+then using a similar method that tekjublaðið uses if i get a list of employees i could track how much they pay in tax
+
+using all of these public data points + public reporting and anything else i havent thought of i feel like i could provide icelanders a valuable place to decide if a company is worth joining and hopefully pressure companies to increase employee benefits to "rank" better
+
+ill be doing this with claude code using RPI
+
+go over my ideas- layer them onto already existing solutions
+
+pin point what im missing, what im thinking right

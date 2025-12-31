@@ -1,0 +1,9 @@
+API Áskrift fyrir Forritara er hönnuð til að hjálpa forriturum og prófurum að samþætta og prófa þjónustur okkar án kostnaðar. Þetta plan hentar vel fyrir sprotafyrirtæki, einstaklingsforritara og teymi á prófunarstigi og býður upp á sveigjanleika og virkni án fjárhagslegra skuldbindinga.
+
+Lykileiginleikar:
+
+Án kostnaðar: Fullur aðgangur að API-inu án áskriftargjalds.
+Rausnarlegar takmarkanir: Allt að 60 API köll á mínútu fyrir slétta þróun og prófanir.
+Hátt mánaðarlegt þak: Allt að 5000 API köll á mánuði til að prófa samþættingar og þróa eiginleika.
+Engin langtímaskuldbinding: Hentar vel fyrir skammtímaverkefni eða til að kanna vettvanginn áður en farið er í greidda áætlun.*
+
