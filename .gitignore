@@ -36,3 +36,5 @@ pdfs/*.pdf
 
 # Keep the database for Vercel deployment
 # !launatrausti.db
+
+.vercel
