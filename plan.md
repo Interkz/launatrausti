@@ -11,6 +11,7 @@
 - [x] Sample data with ISAT codes
 - [x] Benchmark comparison on company pages
 - [x] `/benchmarks` page showing all industries
+- [x] **UI Redesign** - Swiss + Severance (Lumon) aesthetic (2026-01-09)
 
 **Blockers:**
 - No bulk list of companies by industry (need Já Gagnatorg)

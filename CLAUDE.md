@@ -208,6 +208,19 @@ The Hagstofa module (`src/hagstofa.py`) maps ISAT codes to industry categories:
 
 ## Session Notes
 
+**2026-01-09 Session:**
+- **UI Redesign: Swiss + Severance aesthetic**
+  - Complete visual overhaul inspired by Lumon Industries (Apple TV's Severance)
+  - Typography: Playfair Display (headings), IBM Plex Mono (data), IBM Plex Sans (body)
+  - Color palette: forest-green-black (`#1a3d2e`), off-white paper (`#f7f7f5`)
+  - Subtle 80px architectural grid overlay
+  - Monospaced tabular data with zero-padded indices
+  - Double-line borders, uppercase micro-labels
+  - Removed traffic-light colors (no red/green for gains/losses)
+- Created global `/start` skill at `~/.claude/commands/start.md`
+  - Loads CLAUDE.md and plan.md for project context
+  - Available across all projects
+
 **2025-01-09 Session:**
 - **Hagstofa integration complete**
   - Created `src/hagstofa.py` - API client with caching
