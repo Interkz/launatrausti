@@ -4,16 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Launatrausti{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --accent: #38bdf8;
-            --accent-hover: #7dd3fc;
-            --success: #4ade80;
-            --border: #334155;
+            /* The Lumon Palette */
+            --lumon-white: #f7f7f5;
+            --lumon-paper: #f0f0ec;
+            --lumon-black: #0a0f0d;
+            --lumon-green: #1a3d2e;
+            --lumon-green-light: #2a5c47;
+            --lumon-green-muted: #3d6b58;
+            --lumon-grid: #c8c8c4;
+            --lumon-grid-dark: #1a3d2e;
+            --lumon-text-secondary: #5a5a56;
+            --lumon-accent: #8b4513;
+
+            /* Typography scale */
+            --font-display: 'Playfair Display', Georgia, serif;
+            --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
         }
 
         * {
@@ -22,319 +33,628 @@
             box-sizing: border-box;
         }
 
+        html {
+            font-size: 16px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            line-height: 1.6;
+            font-family: var(--font-sans);
+            background-color: var(--lumon-white);
+            color: var(--lumon-black);
+            line-height: 1.5;
             min-height: 100vh;
+            position: relative;
+        }
+
+        /* Subtle paper texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 79px,
+                    var(--lumon-grid) 79px,
+                    var(--lumon-grid) 80px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 79px,
+                    var(--lumon-grid) 79px,
+                    var(--lumon-grid) 80px
+                );
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 0 3rem;
+            position: relative;
+            z-index: 1;
         }
 
+        /* Header — Clinical, authoritative */
         header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
+            padding: 3rem 0 2rem;
+            border-bottom: 2px solid var(--lumon-green);
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--lumon-green);
+            opacity: 0.4;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: baseline;
+            gap: 1.5rem;
         }
 
         header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--accent);
+            font-family: var(--font-display);
+            font-size: 2.75rem;
+            font-weight: 600;
+            color: var(--lumon-green);
+            letter-spacing: -0.02em;
+            line-height: 1;
         }
 
-        header p {
-            color: var(--text-secondary);
-            margin-top: 0.5rem;
+        .header-subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .header-id {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         nav {
-            margin-top: 1rem;
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--lumon-green);
         }
 
         nav a {
-            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-green);
             text-decoration: none;
-            margin-right: 1.5rem;
-            transition: color 0.2s;
+            padding: 0.625rem 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-right: 1px solid var(--lumon-green);
+            transition: all 0.15s ease;
+            position: relative;
         }
 
-        nav a:hover {
-            color: var(--accent);
+        nav a:last-child {
+            border-right: none;
         }
 
+        nav a:hover,
+        nav a.active {
+            background: var(--lumon-green);
+            color: var(--lumon-white);
+        }
+
+        /* Stats — The Data Readout */
         .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+            margin-bottom: 3rem;
+            border: 1px solid var(--lumon-green);
+            background: var(--lumon-paper);
         }
 
         .stat-card {
-            background: var(--card-bg);
-            border-radius: 0.5rem;
-            padding: 1.25rem;
-            border: 1px solid var(--border);
+            padding: 1.75rem 2rem;
+            border-right: 1px solid var(--lumon-green);
+            position: relative;
+        }
+
+        .stat-card:last-child {
+            border-right: none;
         }
 
         .stat-card .label {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--lumon-text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.2em;
+            margin-bottom: 0.5rem;
         }
 
         .stat-card .value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-top: 0.25rem;
+            font-family: var(--font-mono);
+            font-size: 2rem;
+            font-weight: 500;
+            color: var(--lumon-green);
+            letter-spacing: -0.02em;
         }
 
+        /* Card — The Ledger */
         .card {
-            background: var(--card-bg);
-            border-radius: 0.5rem;
-            border: 1px solid var(--border);
-            overflow: hidden;
+            background: var(--lumon-white);
+            border: 1px solid var(--lumon-green);
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border: 1px solid var(--lumon-grid);
+            pointer-events: none;
         }
 
         .card-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            border-bottom: 2px solid var(--lumon-green);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: var(--lumon-paper);
         }
 
         .card-header h2 {
+            font-family: var(--font-display);
             font-size: 1.125rem;
             font-weight: 600;
+            color: var(--lumon-green);
+            letter-spacing: 0.02em;
         }
 
+        .card-header .source {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Table — The Registry */
         table {
             width: 100%;
             border-collapse: collapse;
         }
 
         th, td {
-            padding: 1rem 1.5rem;
+            padding: 1rem 2rem;
             text-align: left;
+            vertical-align: middle;
         }
 
         th {
-            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
             font-weight: 500;
-            font-size: 0.875rem;
+            color: var(--lumon-text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border);
+            letter-spacing: 0.15em;
+            border-bottom: 1px solid var(--lumon-green);
+            background: var(--lumon-paper);
+            padding: 0.875rem 2rem;
+        }
+
+        tr {
+            transition: background-color 0.1s ease;
         }
 
         tr:hover {
-            background: rgba(56, 189, 248, 0.05);
+            background: var(--lumon-paper);
         }
 
         td {
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--lumon-grid);
+            font-size: 0.9375rem;
         }
 
         .rank {
-            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
             font-weight: 500;
+            width: 60px;
         }
 
         .company-name {
-            font-weight: 600;
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 1rem;
         }
 
         .company-name a {
-            color: var(--text-primary);
+            color: var(--lumon-black);
             text-decoration: none;
+            position: relative;
+        }
+
+        .company-name a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--lumon-green);
+            transition: width 0.2s ease;
         }
 
         .company-name a:hover {
-            color: var(--accent);
+            color: var(--lumon-green);
+        }
+
+        .company-name a:hover::after {
+            width: 100%;
         }
 
         .salary {
+            font-family: var(--font-mono);
             font-weight: 600;
-            color: var(--success);
+            font-size: 0.9375rem;
+            color: var(--lumon-green);
+            letter-spacing: -0.01em;
         }
 
         .salary-annual {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
         }
 
         .employees {
-            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--lumon-text-secondary);
         }
 
+        /* Year Filter — The Selector */
         .year-filter {
             display: flex;
-            gap: 0.5rem;
+            gap: 0;
+            border: 1px solid var(--lumon-green);
         }
 
         .year-filter a {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
             padding: 0.5rem 1rem;
-            border-radius: 0.25rem;
-            background: var(--bg-color);
-            color: var(--text-secondary);
+            color: var(--lumon-green);
             text-decoration: none;
-            font-size: 0.875rem;
-            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-right: 1px solid var(--lumon-green);
+            transition: all 0.15s ease;
+        }
+
+        .year-filter a:last-child {
+            border-right: none;
         }
 
         .year-filter a:hover,
         .year-filter a.active {
-            background: var(--accent);
-            color: var(--bg-color);
+            background: var(--lumon-green);
+            color: var(--lumon-white);
         }
 
+        /* Back link */
         .back-link {
-            display: inline-block;
-            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
             text-decoration: none;
-            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1.5rem;
+            transition: color 0.15s ease;
+        }
+
+        .back-link::before {
+            content: '←';
         }
 
         .back-link:hover {
-            color: var(--accent);
+            color: var(--lumon-green);
         }
 
+        /* Company Detail Header */
         .company-header {
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--lumon-grid);
         }
 
         .company-header h1 {
-            font-size: 2rem;
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--lumon-green);
             margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
         }
 
         .company-header .kennitala {
-            color: var(--text-secondary);
-        }
-
-        footer {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-align: center;
-        }
-
-        footer a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        .warning {
-            background: rgba(251, 191, 36, 0.1);
-            border: 1px solid rgba(251, 191, 36, 0.3);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            color: #fbbf24;
-            font-size: 0.875rem;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
+            letter-spacing: 0.05em;
         }
 
         .company-header .industry {
-            color: var(--accent);
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
-        }
-
-        .benchmark-card {
-            margin-bottom: 1.5rem;
-        }
-
-        .benchmark-card .card-header .source {
+            font-family: var(--font-mono);
             font-size: 0.75rem;
-            color: var(--text-secondary);
+            color: var(--lumon-green-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 0.5rem;
+        }
+
+        /* Benchmark Card */
+        .benchmark-card {
+            margin-bottom: 2rem;
         }
 
         .benchmark-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-            padding: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 0;
         }
 
         .benchmark-item {
-            background: var(--bg-color);
-            border-radius: 0.5rem;
-            padding: 1.25rem;
-            border: 1px solid var(--border);
+            padding: 1.5rem 2rem;
+            border-right: 1px solid var(--lumon-grid);
+            border-bottom: 1px solid var(--lumon-grid);
+        }
+
+        .benchmark-item:last-child {
+            border-right: none;
         }
 
         .benchmark-label {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--lumon-text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.15em;
+            margin-bottom: 0.75rem;
         }
 
         .benchmark-values {
             display: flex;
-            align-items: center;
+            align-items: baseline;
             gap: 0.75rem;
             margin-bottom: 0.5rem;
         }
 
         .benchmark-values .company-val {
-            font-size: 1.25rem;
+            font-family: var(--font-mono);
+            font-size: 1.375rem;
             font-weight: 600;
-            color: var(--text-primary);
+            color: var(--lumon-green);
         }
 
         .benchmark-values .vs {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
         }
 
         .benchmark-values .benchmark-val {
+            font-family: var(--font-mono);
             font-size: 1.125rem;
-            color: var(--text-secondary);
+            color: var(--lumon-text-secondary);
         }
 
         .benchmark-diff {
-            font-size: 1.125rem;
-            font-weight: 700;
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 600;
         }
 
         .benchmark-diff.positive {
-            color: var(--success);
+            color: var(--lumon-green);
+        }
+
+        .benchmark-diff.positive::before {
+            content: '+';
         }
 
         .benchmark-diff.negative {
-            color: #ef4444;
+            color: var(--lumon-accent);
+            font-style: italic;
+        }
+
+        /* Warning Banner — Clinical Alert */
+        .warning {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            background: var(--lumon-paper);
+            border: 1px solid var(--lumon-grid);
+            border-left: 3px solid var(--lumon-accent);
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .warning::before {
+            content: 'NOTICE // ';
+            color: var(--lumon-accent);
+            font-weight: 600;
+        }
+
+        /* Footer — The Disclosure */
+        footer {
+            margin-top: 4rem;
+            padding: 2rem 0;
+            border-top: 2px solid var(--lumon-green);
+            position: relative;
+        }
+
+        footer::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--lumon-green);
+            opacity: 0.4;
+        }
+
+        footer p {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            line-height: 1.8;
+        }
+
+        footer a {
+            color: var(--lumon-green);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.15s ease;
+        }
+
+        footer a:hover {
+            border-bottom-color: var(--lumon-green);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 3rem;
+        }
+
+        .footer-meta {
+            text-align: right;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container {
+                padding: 0 1.5rem;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-card {
+                border-right: none;
+                border-bottom: 1px solid var(--lumon-green);
+            }
+
+            .stat-card:last-child {
+                border-bottom: none;
+            }
+
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1.5rem;
+            }
+
+            th, td {
+                padding: 0.75rem 1rem;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .footer-meta {
+                text-align: left;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body::before {
+                display: none;
+            }
+
+            .card::before {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Launatrausti</h1>
-            <p>Icelandic Salary Transparency</p>
+            <div class="header-top">
+                <div class="logo-section">
+                    <h1>Launatrausti</h1>
+                    <span class="header-subtitle">Icelandic Salary Transparency</span>
+                </div>
+                <span class="header-id">Est. 2024 // Public Data Initiative</span>
+            </div>
             <nav>
-                <a href="/">Rankings</a>
-                <a href="/benchmarks">Industry Benchmarks</a>
+                <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Rankings</a>
+                <a href="/benchmarks" {% if '/benchmarks' in request.path %}class="active"{% endif %}>Industry Benchmarks</a>
             </nav>
         </header>
 
         {% block content %}{% endblock %}
 
         <footer>
-            <p>Company data from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
-            <p style="margin-top: 0.5rem;">Industry benchmarks from <a href="https://hagstofa.is/" target="_blank">Hagstofa Íslands</a> (Statistics Iceland).</p>
-            <p style="margin-top: 0.5rem;">Average salary = Total wage costs / Number of employees</p>
+            <div class="footer-grid">
+                <div class="footer-content">
+                    <p>Company data sourced from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
+                    <p style="margin-top: 0.5rem;">Industry benchmarks from <a href="https://hagstofa.is/" target="_blank">Hagstofa Íslands</a> (Statistics Iceland).</p>
+                    <p style="margin-top: 0.5rem;">Methodology: Average salary = Total wage costs ÷ Number of employees</p>
+                </div>
+                <div class="footer-meta">
+                    <p>Document Classification: Public</p>
+                    <p>Data Refresh: Manual</p>
+                </div>
+            </div>
         </footer>
     </div>
 </body>

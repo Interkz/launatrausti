@@ -4,27 +4,27 @@
 
 {% block content %}
 <div class="warning">
-    ⚠️ MVP / Proof of Concept - Data shown may be sample data for testing purposes.
+    MVP / Proof of Concept — Data shown may be sample data for testing purposes.
 </div>
 
 <div class="stats">
     <div class="stat-card">
-        <div class="label">Companies</div>
-        <div class="value">{{ companies|length }}</div>
+        <div class="label">Total Entities</div>
+        <div class="value">{{ "%02d"|format(companies|length) }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Year</div>
+        <div class="label">Reporting Year</div>
         <div class="value">{{ selected_year or 'Latest' }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Highest Avg Salary</div>
-        <div class="value">{% if companies %}{{ "{:,.0f}".format(companies[0].avg_salary // 12).replace(",", ".") }} kr{% else %}-{% endif %}</div>
+        <div class="label">Maximum Monthly Average</div>
+        <div class="value">{% if companies %}{{ "{:,.0f}".format(companies[0].avg_salary // 12).replace(",", ".") }}<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span>{% else %}—{% endif %}</div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h2>Companies by Average Salary</h2>
+        <h2>Salary Registry</h2>
         <div class="year-filter">
             <a href="/" {% if not selected_year %}class="active"{% endif %}>Latest</a>
             {% for year in years %}
@@ -35,34 +35,38 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 60px;">#</th>
-                <th>Company</th>
+                <th style="width: 80px;">Index</th>
+                <th>Entity Name</th>
                 <th>Monthly Avg</th>
-                <th>Annual Avg</th>
-                <th>Employees</th>
-                <th>Year</th>
+                <th>Annual Total</th>
+                <th style="text-align: right;">Headcount</th>
+                <th style="text-align: right; width: 100px;">Year</th>
             </tr>
         </thead>
         <tbody>
             {% for company in companies %}
             <tr>
-                <td class="rank">{{ loop.index }}</td>
+                <td class="rank">{{ "%02d"|format(loop.index) }}</td>
                 <td class="company-name">
                     <a href="/company/{{ company.id }}">{{ company.name }}</a>
                 </td>
                 <td class="salary">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr</td>
                 <td class="salary-annual">{{ "{:,.0f}".format(company.avg_salary).replace(",", ".") }} kr</td>
-                <td class="employees">{{ "{:,.0f}".format(company.starfsmenn).replace(",", ".") }}</td>
-                <td>{{ company.year }}</td>
+                <td class="employees" style="text-align: right;">{{ "{:,.0f}".format(company.starfsmenn).replace(",", ".") }}</td>
+                <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);">{{ company.year }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
-                    No data yet. Run <code>python scripts/seed_sample.py</code> to add sample data.
+                <td colspan="6" style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+                    No data available — Execute <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/seed_sample.py</code> to initialize sample data
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
+    Record Count: {{ companies|length }} // Sort: Descending by Average Salary
 </div>
 {% endblock %}
