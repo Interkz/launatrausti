@@ -243,6 +243,79 @@
             color: #fbbf24;
             font-size: 0.875rem;
         }
+
+        .company-header .industry {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .benchmark-card {
+            margin-bottom: 1.5rem;
+        }
+
+        .benchmark-card .card-header .source {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .benchmark-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .benchmark-item {
+            background: var(--bg-color);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .benchmark-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .benchmark-values {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .benchmark-values .company-val {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .benchmark-values .vs {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .benchmark-values .benchmark-val {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+        }
+
+        .benchmark-diff {
+            font-size: 1.125rem;
+            font-weight: 700;
+        }
+
+        .benchmark-diff.positive {
+            color: var(--success);
+        }
+
+        .benchmark-diff.negative {
+            color: #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -252,13 +325,15 @@
             <p>Icelandic Salary Transparency</p>
             <nav>
                 <a href="/">Rankings</a>
+                <a href="/benchmarks">Industry Benchmarks</a>
             </nav>
         </header>
 
         {% block content %}{% endblock %}
 
         <footer>
-            <p>Data from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
+            <p>Company data from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
+            <p style="margin-top: 0.5rem;">Industry benchmarks from <a href="https://hagstofa.is/" target="_blank">Hagstofa Íslands</a> (Statistics Iceland).</p>
             <p style="margin-top: 0.5rem;">Average salary = Total wage costs / Number of employees</p>
         </footer>
     </div>

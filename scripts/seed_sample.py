@@ -17,10 +17,12 @@ from src.database import get_or_create_company, save_annual_report, get_ranked_c
 
 # Sample data based on publicly known large Icelandic companies
 # These are ESTIMATED/FAKE numbers for testing purposes only
+# ISAT codes are approximate industry classifications
 SAMPLE_DATA = [
     {
         "kennitala": "5501692829",
         "name": "Marel hf.",
+        "isat_code": "28.93",  # Manufacturing - food processing machinery
         "reports": [
             {"year": 2023, "launakostnadur": 45_000_000_000, "starfsmenn": 7500, "tekjur": 180_000_000_000},
             {"year": 2022, "launakostnadur": 42_000_000_000, "starfsmenn": 7200, "tekjur": 165_000_000_000},
@@ -29,6 +31,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "6906861229",
         "name": "Síminn hf.",
+        "isat_code": "61.10",  # Telecommunications
         "reports": [
             {"year": 2023, "launakostnadur": 8_500_000_000, "starfsmenn": 850, "tekjur": 35_000_000_000},
             {"year": 2022, "launakostnadur": 8_000_000_000, "starfsmenn": 820, "tekjur": 33_000_000_000},
@@ -37,6 +40,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "4710990149",
         "name": "Landsbankinn hf.",
+        "isat_code": "64.19",  # Banking
         "reports": [
             {"year": 2023, "launakostnadur": 18_000_000_000, "starfsmenn": 1100, "tekjur": 85_000_000_000},
             {"year": 2022, "launakostnadur": 16_500_000_000, "starfsmenn": 1050, "tekjur": 75_000_000_000},
@@ -45,6 +49,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "4200694339",
         "name": "Icelandair Group hf.",
+        "isat_code": "51.10",  # Air transport
         "reports": [
             {"year": 2023, "launakostnadur": 32_000_000_000, "starfsmenn": 4500, "tekjur": 280_000_000_000},
             {"year": 2022, "launakostnadur": 28_000_000_000, "starfsmenn": 4000, "tekjur": 220_000_000_000},
@@ -53,6 +58,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "5101692079",
         "name": "Össur hf.",
+        "isat_code": "32.50",  # Manufacturing - medical devices
         "reports": [
             {"year": 2023, "launakostnadur": 25_000_000_000, "starfsmenn": 4000, "tekjur": 110_000_000_000},
             {"year": 2022, "launakostnadur": 23_000_000_000, "starfsmenn": 3800, "tekjur": 100_000_000_000},
@@ -61,6 +67,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "5106852399",
         "name": "Arion banki hf.",
+        "isat_code": "64.19",  # Banking
         "reports": [
             {"year": 2023, "launakostnadur": 15_000_000_000, "starfsmenn": 900, "tekjur": 70_000_000_000},
             {"year": 2022, "launakostnadur": 14_000_000_000, "starfsmenn": 880, "tekjur": 62_000_000_000},
@@ -69,6 +76,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "6604140790",
         "name": "CCP Games hf.",
+        "isat_code": "62.01",  # Software/game development
         "reports": [
             {"year": 2023, "launakostnadur": 5_500_000_000, "starfsmenn": 350, "tekjur": 12_000_000_000},
             {"year": 2022, "launakostnadur": 5_000_000_000, "starfsmenn": 320, "tekjur": 11_000_000_000},
@@ -77,6 +85,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "6804080550",
         "name": "Vodafone Iceland",
+        "isat_code": "61.10",  # Telecommunications
         "reports": [
             {"year": 2023, "launakostnadur": 4_200_000_000, "starfsmenn": 380, "tekjur": 28_000_000_000},
             {"year": 2022, "launakostnadur": 4_000_000_000, "starfsmenn": 370, "tekjur": 26_000_000_000},
@@ -85,6 +94,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "4612872009",
         "name": "Eimskip hf.",
+        "isat_code": "50.20",  # Sea freight transport
         "reports": [
             {"year": 2023, "launakostnadur": 12_000_000_000, "starfsmenn": 1800, "tekjur": 95_000_000_000},
             {"year": 2022, "launakostnadur": 11_000_000_000, "starfsmenn": 1700, "tekjur": 88_000_000_000},
@@ -93,6 +103,7 @@ SAMPLE_DATA = [
     {
         "kennitala": "5901052320",
         "name": "Kvika banki hf.",
+        "isat_code": "64.19",  # Banking
         "reports": [
             {"year": 2023, "launakostnadur": 6_000_000_000, "starfsmenn": 350, "tekjur": 25_000_000_000},
             {"year": 2022, "launakostnadur": 5_500_000_000, "starfsmenn": 330, "tekjur": 22_000_000_000},
@@ -111,9 +122,10 @@ def main():
     for company_data in SAMPLE_DATA:
         company_id = get_or_create_company(
             kennitala=company_data["kennitala"],
-            name=company_data["name"]
+            name=company_data["name"],
+            isat_code=company_data.get("isat_code")
         )
-        print(f"Company: {company_data['name']} (id={company_id})")
+        print(f"Company: {company_data['name']} (id={company_id}, ISAT={company_data.get('isat_code', 'N/A')})")
 
         for report in company_data["reports"]:
             report_id = save_annual_report(

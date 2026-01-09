@@ -8,6 +8,9 @@
 <div class="company-header">
     <h1>{{ company.name }}</h1>
     <p class="kennitala">Kennitala: {{ company.kennitala }}</p>
+    {% if industry_name %}
+    <p class="industry">Industry: {{ industry_name }}</p>
+    {% endif %}
 </div>
 
 <div class="stats">
@@ -31,6 +34,51 @@
     </div>
     {% endif %}
 </div>
+
+{% if benchmark or national_avg %}
+<div class="card benchmark-card">
+    <div class="card-header">
+        <h2>Industry Benchmark Comparison</h2>
+        <span class="source">Source: Hagstofa Íslands ({{ latest.year if reports else '' }})</span>
+    </div>
+    <div class="benchmark-grid">
+        {% if reports %}
+        {% set latest = reports[0] %}
+        {% set company_monthly = latest.avg_salary // 12 %}
+
+        {% if benchmark %}
+        {% set diff_industry = ((company_monthly - benchmark.monthly_wage) / benchmark.monthly_wage * 100) %}
+        <div class="benchmark-item">
+            <div class="benchmark-label">vs {{ industry_name or 'Industry' }} Average</div>
+            <div class="benchmark-values">
+                <span class="company-val">{{ "{:,.0f}".format(company_monthly).replace(",", ".") }} kr</span>
+                <span class="vs">vs</span>
+                <span class="benchmark-val">{{ "{:,.0f}".format(benchmark.monthly_wage).replace(",", ".") }} kr</span>
+            </div>
+            <div class="benchmark-diff {% if diff_industry >= 0 %}positive{% else %}negative{% endif %}">
+                {% if diff_industry >= 0 %}+{% endif %}{{ "{:.1f}".format(diff_industry) }}%
+            </div>
+        </div>
+        {% endif %}
+
+        {% if national_avg %}
+        {% set diff_national = ((company_monthly - national_avg.monthly_wage) / national_avg.monthly_wage * 100) %}
+        <div class="benchmark-item">
+            <div class="benchmark-label">vs National Average</div>
+            <div class="benchmark-values">
+                <span class="company-val">{{ "{:,.0f}".format(company_monthly).replace(",", ".") }} kr</span>
+                <span class="vs">vs</span>
+                <span class="benchmark-val">{{ "{:,.0f}".format(national_avg.monthly_wage).replace(",", ".") }} kr</span>
+            </div>
+            <div class="benchmark-diff {% if diff_national >= 0 %}positive{% else %}negative{% endif %}">
+                {% if diff_national >= 0 %}+{% endif %}{{ "{:.1f}".format(diff_national) }}%
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="card-header">
