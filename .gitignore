@@ -38,3 +38,6 @@ pdfs/*.pdf
 # !launatrausti.db
 
 .vercel
+
+# Windows reserved device filenames
+nul
