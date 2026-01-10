@@ -208,6 +208,22 @@ The Hagstofa module (`src/hagstofa.py`) maps ISAT codes to industry categories:
 
 ## Session Notes
 
+**2026-01-10 Session:**
+- **Data source research & integration**
+  - Researched free Icelandic data APIs (apis.is, Hagstofa, Opnirreikningar, OpenCorporates, GLEIF)
+  - apis.is is currently down (502 Bad Gateway, expired SSL cert)
+  - Created `src/apis_is.py` - API client (ready when service recovers)
+  - Created `scripts/import_apis_is.py` - bulk import script
+  - Created `scripts/import_skatturinn.py` - import using existing Skatturinn API
+  - Imported 4 real companies: Landsbankinn, Arion, Íslandsbanki, Síminn
+- **Key findings from data source research:**
+  - No free API for company-specific financial data (wage costs, employees)
+  - Hagstofa: industry averages only (already integrated)
+  - Já Gagnatorg: bulk ISAT codes (requires 30-day free trial signup)
+  - Creditinfo: full financials (paid)
+  - OpenCorporates: free for research (apply for API key)
+  - Opnirreikningar.is: government supplier payments (free)
+
 **2026-01-09 Session:**
 - **UI Redesign: Swiss + Severance aesthetic**
   - Complete visual overhaul inspired by Lumon Industries (Apple TV's Severance)

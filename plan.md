@@ -12,10 +12,15 @@
 - [x] Benchmark comparison on company pages
 - [x] `/benchmarks` page showing all industries
 - [x] **UI Redesign** - Swiss + Severance (Lumon) aesthetic (2026-01-09)
+- [x] **Data source research** - identified free APIs (2026-01-10)
+- [x] **apis.is client** - `src/apis_is.py` (service currently down)
+- [x] **Skatturinn import script** - `scripts/import_skatturinn.py`
+- [x] **Imported 4 real companies** - Landsbankinn, Arion, Íslandsbanki, Síminn
 
 **Blockers:**
-- No bulk list of companies by industry (need Já Gagnatorg)
+- No bulk list of companies by industry (need Já Gagnatorg 30-day trial)
 - No real financial data (need Creditinfo or manual PDF extraction)
+- apis.is service is down (502 Bad Gateway)
 
 ---
 
