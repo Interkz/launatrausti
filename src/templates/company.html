@@ -3,13 +3,23 @@
 {% block title %}{{ company.name }} - Launatrausti{% endblock %}
 
 {% block content %}
-<a href="/" class="back-link">← Back to rankings</a>
+<a href="/" class="back-link">Back to rankings</a>
 
 <div class="company-header">
     <h1>{{ company.name }}</h1>
-    <p class="kennitala">Kennitala: {{ company.kennitala }}</p>
+    <p class="kennitala">Kennitala: {{ company.kennitala }}
+        {% if company.sector %}
+        <span class="badge {% if company.sector == 'public' %}badge-public{% else %}badge-private{% endif %}" style="margin-left: 0.75rem;">{{ company.sector }}</span>
+        {% endif %}
+    </p>
     {% if industry_name %}
     <p class="industry">Industry: {{ industry_name }}</p>
+    {% endif %}
+    {% if reports %}
+    <p style="margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+        <span class="source-dot {{ 'real' if reports[0].source_pdf != 'sample_data' else 'sample' }}"></span>
+        Data source: {{ reports[0].source_pdf if reports[0].source_pdf != 'sample_data' else 'Sample data' }}
+    </p>
     {% endif %}
 </div>
 
@@ -39,7 +49,7 @@
 <div class="card benchmark-card">
     <div class="card-header">
         <h2>Industry Benchmark Comparison</h2>
-        <span class="source">Source: Hagstofa Íslands ({{ latest.year if reports else '' }})</span>
+        <span class="source">Source: Hagstofa Islands ({{ latest.year if reports else '' }})</span>
     </div>
     <div class="benchmark-grid">
         {% if reports %}
@@ -80,6 +90,73 @@
 </div>
 {% endif %}
 
+{% if salary_comparison and salary_comparison.get('vr_avg') %}
+<div class="card">
+    <div class="card-header">
+        <h2>VR Salary Survey Comparison</h2>
+        <span class="source">Source: VR Launarannsoekn ({{ salary_comparison.vr_survey_date }})</span>
+    </div>
+    <div class="benchmark-grid">
+        <div class="benchmark-item">
+            <div class="benchmark-label">Company Annual Avg vs VR Survey Avg (Monthly x12)</div>
+            <div class="benchmark-values">
+                <span class="company-val">{{ "{:,.0f}".format(salary_comparison.company_avg_salary).replace(",", ".") }} kr</span>
+                <span class="vs">vs</span>
+                <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_avg * 12).replace(",", ".") }} kr</span>
+            </div>
+            {% if salary_comparison.diff_pct is not none %}
+            <div class="benchmark-diff {% if salary_comparison.diff_pct >= 0 %}positive{% else %}negative{% endif %}">
+                {% if salary_comparison.diff_pct >= 0 %}+{% endif %}{{ "{:.1f}".format(salary_comparison.diff_pct) }}%
+            </div>
+            {% endif %}
+        </div>
+        <div class="benchmark-item">
+            <div class="benchmark-label">VR Survey Range (Monthly)</div>
+            <div class="benchmark-values">
+                <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_min).replace(",", ".") }} kr</span>
+                <span class="vs">to</span>
+                <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_max).replace(",", ".") }} kr</span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+                Based on {{ salary_comparison.vr_survey_count }} survey positions
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if financials and financials.get('reports') and financials.reports|length > 0 %}
+{% set fin_latest = financials.reports[-1] %}
+<div class="card">
+    <div class="card-header">
+        <h2>Financial Overview</h2>
+        <a href="/company/{{ company.id }}/financials" style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-green); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em;">View Full Financials</a>
+    </div>
+    <div class="benchmark-grid">
+        <div class="benchmark-item">
+            <div class="benchmark-label">Profit / Loss ({{ fin_latest.year }})</div>
+            <div class="benchmark-values">
+                {% if fin_latest.hagnadur is not none %}
+                <span class="company-val" style="{% if fin_latest.hagnadur < 0 %}color: var(--lumon-accent);{% endif %}">{{ "{:,.0f}".format(fin_latest.hagnadur // 1000000).replace(",", ".") }}M kr</span>
+                {% else %}
+                <span class="benchmark-val">N/A</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="benchmark-item">
+            <div class="benchmark-label">Salary as % of Revenue ({{ fin_latest.year }})</div>
+            <div class="benchmark-values">
+                {% if fin_latest.laun_hlutfall_tekna is not none %}
+                <span class="company-val">{{ "{:.1f}".format(fin_latest.laun_hlutfall_tekna * 100) }}%</span>
+                {% else %}
+                <span class="benchmark-val">N/A</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header">
         <h2>Annual Reports</h2>
@@ -107,7 +184,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--lumon-text-secondary);">
                     No annual reports found.
                 </td>
             </tr>
@@ -121,21 +198,32 @@
     <div class="card-header">
         <h2>Salary Trend</h2>
     </div>
-    <div style="padding: 1.5rem;">
+    <div style="padding: 1.5rem 2rem;">
         {% set first = reports[-1] %}
         {% set latest = reports[0] %}
         {% set change = ((latest.avg_salary - first.avg_salary) / first.avg_salary * 100) if first.avg_salary else 0 %}
-        <p>
+        <p style="font-family: var(--font-sans); font-size: 0.9375rem;">
             From {{ first.year }} to {{ latest.year }}:
-            <strong style="color: {% if change >= 0 %}var(--success){% else %}#ef4444{% endif %}">
-                {% if change >= 0 %}+{% endif %}{{ "{:.1f}".format(change) }}%
-            </strong>
+            <span class="trend-arrow {% if change >= 0 %}up{% else %}down{% endif %}">
+                {{ "{:.1f}".format(change|abs) }}%
+            </span>
             change in average salary.
         </p>
-        <p style="margin-top: 0.5rem; color: var(--text-secondary);">
-            {{ first.year }}: {{ "{:,.0f}".format(first.avg_salary // 12).replace(",", ".") }} kr/month →
+        <p style="margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);">
+            {{ first.year }}: {{ "{:,.0f}".format(first.avg_salary // 12).replace(",", ".") }} kr/month
+            &rarr;
             {{ latest.year }}: {{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr/month
         </p>
+        {% if financials and financials.get('trends') %}
+        {% if financials.trends.get('salary_cagr') is not none %}
+        <p style="margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
+            Salary CAGR: <span class="trend-arrow {% if financials.trends.salary_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.salary_cagr * 100) }}%</span>
+            {% if financials.trends.get('revenue_cagr') is not none %}
+            // Revenue CAGR: <span class="trend-arrow {% if financials.trends.revenue_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.revenue_cagr * 100) }}%</span>
+            {% endif %}
+        </p>
+        {% endif %}
+        {% endif %}
     </div>
 </div>
 {% endif %}

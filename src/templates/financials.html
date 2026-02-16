@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.name }} Financials - Launatrausti{% endblock %}
+
+{% block content %}
+<a href="/company/{{ company.id }}" class="back-link">Back to {{ company.name }}</a>
+
+<div class="company-header">
+    <h1>{{ company.name }}</h1>
+    <p class="kennitala">Kennitala: {{ company.kennitala }}</p>
+    {% if company.isat_code %}
+    <p class="industry">ISAT: {{ company.isat_code }}</p>
+    {% endif %}
+</div>
+
+{% if reports %}
+{% set latest = reports[-1] %}
+<div class="stats" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="stat-card">
+        <div class="label">Latest Profit/Loss ({{ latest.year }})</div>
+        <div class="value">{% if latest.hagnadur is not none %}{{ "{:,.0f}".format(latest.hagnadur // 1000000).replace(",", ".") }}M<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span>{% else %}N/A{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Revenue ({{ latest.year }})</div>
+        <div class="value">{% if latest.tekjur %}{{ "{:,.0f}".format(latest.tekjur // 1000000).replace(",", ".") }}M<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span>{% else %}N/A{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Salary / Revenue %</div>
+        <div class="value">{% if latest.laun_hlutfall_tekna is not none %}{{ "{:.1f}".format(latest.laun_hlutfall_tekna * 100) }}%{% else %}N/A{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Employees ({{ latest.year }})</div>
+        <div class="value">{{ "{:,.0f}".format(latest.starfsmenn).replace(",", ".") }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Year-by-Year Financials</h2>
+        <span class="source">{{ reports|length }} reporting years</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Year</th>
+                <th>Revenue</th>
+                <th>Wage Costs</th>
+                <th>Profit/Loss</th>
+                <th>Salary/Revenue %</th>
+                <th>Avg Salary</th>
+                <th style="text-align: right;">Employees</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports|reverse %}
+            <tr>
+                <td style="font-family: var(--font-mono); font-weight: 500;">{{ report.year }}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem;">{% if report.tekjur %}{{ "{:,.0f}".format(report.tekjur // 1000000).replace(",", ".") }}M kr{% else %}-{% endif %}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem;">{{ "{:,.0f}".format(report.launakostnadur // 1000000).replace(",", ".") }}M kr</td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem; {% if report.hagnadur is not none and report.hagnadur < 0 %}color: var(--lumon-accent);{% elif report.hagnadur is not none %}color: var(--lumon-green);{% endif %}">
+                    {% if report.hagnadur is not none %}{{ "{:,.0f}".format(report.hagnadur // 1000000).replace(",", ".") }}M kr{% else %}-{% endif %}
+                </td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem;">
+                    {% if report.laun_hlutfall_tekna is not none %}
+                    {{ "{:.1f}".format(report.laun_hlutfall_tekna * 100) }}%
+                    <div class="percentile-bar" style="margin-top: 0.25rem;">
+                        <div class="percentile-fill" style="width: {{ (report.laun_hlutfall_tekna * 100)|round(1) }}%; max-width: 100%;"></div>
+                    </div>
+                    {% else %}-{% endif %}
+                </td>
+                <td class="salary">{{ "{:,.0f}".format(report.avg_salary // 12).replace(",", ".") }} kr</td>
+                <td class="employees" style="text-align: right;">{{ "{:,.0f}".format(report.starfsmenn).replace(",", ".") }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if trends %}
+<div class="card">
+    <div class="card-header">
+        <h2>Trend Summary</h2>
+    </div>
+    <div style="padding: 1.5rem 2rem;">
+        {% set first = reports[0] %}
+        {% set last = reports[-1] %}
+        <p style="font-family: var(--font-sans); font-size: 0.9375rem; margin-bottom: 1rem;">
+            Financial data spans from {{ first.year }} to {{ last.year }} ({{ last.year - first.year }} years).
+        </p>
+
+        {% if trends.get('salary_cagr') is not none %}
+        <p style="font-family: var(--font-mono); font-size: 0.875rem; margin-bottom: 0.5rem;">
+            Salary CAGR:
+            <span class="trend-arrow {% if trends.salary_cagr >= 0 %}up{% else %}down{% endif %}">
+                {{ "{:.1f}".format(trends.salary_cagr * 100) }}%
+            </span>
+            per year
+        </p>
+        {% endif %}
+
+        {% if trends.get('revenue_cagr') is not none %}
+        <p style="font-family: var(--font-mono); font-size: 0.875rem; margin-bottom: 0.5rem;">
+            Revenue CAGR:
+            <span class="trend-arrow {% if trends.revenue_cagr >= 0 %}up{% else %}down{% endif %}">
+                {{ "{:.1f}".format(trends.revenue_cagr * 100) }}%
+            </span>
+            per year
+        </p>
+        {% endif %}
+
+        {% if trends.get('salary_cagr') is not none and trends.get('revenue_cagr') is not none %}
+        <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); margin-top: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            {% if trends.salary_cagr > trends.revenue_cagr %}
+            Salaries growing faster than revenue — wage pressure increasing
+            {% elif trends.salary_cagr < trends.revenue_cagr %}
+            Revenue growing faster than salaries — margin expanding
+            {% else %}
+            Salaries and revenue growing at similar rates
+            {% endif %}
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <div style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+        No financial data available for this company.
+    </div>
+</div>
+{% endif %}
+{% endblock %}

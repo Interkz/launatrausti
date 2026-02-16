@@ -3,9 +3,11 @@
 {% block title %}Launatrausti - Icelandic Salary Rankings{% endblock %}
 
 {% block content %}
+{% if not has_real_data %}
 <div class="warning">
     MVP / Proof of Concept — Data shown may be sample data for testing purposes.
 </div>
+{% endif %}
 
 <div class="stats">
     <div class="stat-card">
@@ -25,11 +27,20 @@
 <div class="card">
     <div class="card-header">
         <h2>Salary Registry</h2>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <div class="year-filter">
+                <a href="/?{% if selected_sector %}sector={{ selected_sector }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Latest</a>
+                {% for year in years %}
+                <a href="/?year={{ year }}{% if selected_sector %}&sector={{ selected_sector }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div style="padding: 0.75rem 2rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper);">
         <div class="year-filter">
-            <a href="/" {% if not selected_year %}class="active"{% endif %}>Latest</a>
-            {% for year in years %}
-            <a href="/?year={{ year }}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
-            {% endfor %}
+            <a href="/?{% if selected_year %}year={{ selected_year }}{% endif %}" {% if not selected_sector %}class="active"{% endif %}>All</a>
+            <a href="/?sector=private{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'private' %}class="active"{% endif %}>Private</a>
+            <a href="/?sector=public{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'public' %}class="active"{% endif %}>Public</a>
         </div>
     </div>
     <table>
@@ -48,7 +59,7 @@
             <tr>
                 <td class="rank">{{ "%02d"|format(loop.index) }}</td>
                 <td class="company-name">
-                    <a href="/company/{{ company.id }}">{{ company.name }}</a>
+                    <span class="source-dot {{ 'real' if company.get('source_pdf', 'sample_data') != 'sample_data' else 'sample' }}"></span><a href="/company/{{ company.id }}">{{ company.name }}</a>
                 </td>
                 <td class="salary">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr</td>
                 <td class="salary-annual">{{ "{:,.0f}".format(company.avg_salary).replace(",", ".") }} kr</td>

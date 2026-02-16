@@ -613,6 +613,38 @@
             }
         }
 
+        /* Percentile bar */
+        .percentile-bar { position: relative; height: 8px; background: var(--lumon-grid); width: 100%; }
+        .percentile-fill { position: absolute; height: 100%; background: var(--lumon-green); }
+        .percentile-marker { position: absolute; top: -4px; width: 2px; height: 16px; background: var(--lumon-accent); }
+
+        /* Badges */
+        .badge { font-family: var(--font-mono); font-size: 0.5625rem; padding: 0.125rem 0.5rem; border: 1px solid; text-transform: uppercase; letter-spacing: 0.1em; }
+        .badge-private { border-color: var(--lumon-green); color: var(--lumon-green); }
+        .badge-public { border-color: var(--lumon-accent); color: var(--lumon-accent); }
+
+        /* Source indicators */
+        .source-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; }
+        .source-dot.real { background: var(--lumon-green); }
+        .source-dot.sample { background: var(--lumon-grid); }
+
+        /* Trend arrows */
+        .trend-arrow { font-family: var(--font-mono); font-weight: 600; }
+        .trend-arrow.up { color: var(--lumon-green); }
+        .trend-arrow.up::before { content: '▲ '; }
+        .trend-arrow.down { color: var(--lumon-accent); }
+        .trend-arrow.down::before { content: '▼ '; }
+
+        /* Filter sidebar */
+        .filter-sidebar { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--lumon-green); }
+        .filter-sidebar a { font-family: var(--font-mono); font-size: 0.75rem; padding: 0.625rem 1.25rem; color: var(--lumon-green); text-decoration: none; border-bottom: 1px solid var(--lumon-grid); text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.15s ease; }
+        .filter-sidebar a:last-child { border-bottom: none; }
+        .filter-sidebar a:hover, .filter-sidebar a.active { background: var(--lumon-green); color: var(--lumon-white); }
+
+        /* Content with sidebar layout */
+        .content-with-sidebar { display: grid; grid-template-columns: 200px 1fr; gap: 2rem; }
+        @media (max-width: 900px) { .content-with-sidebar { grid-template-columns: 1fr; } }
+
         /* Print styles */
         @media print {
             body::before {
@@ -638,6 +670,8 @@
             <nav>
                 <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Rankings</a>
                 <a href="/benchmarks" {% if '/benchmarks' in request.path %}class="active"{% endif %}>Industry Benchmarks</a>
+                <a href="/salaries" {% if '/salaries' in request.path %}class="active"{% endif %}>Salaries</a>
+                <a href="/launaleynd" {% if '/launaleynd' in request.path %}class="active"{% endif %}>Launaleynd</a>
             </nav>
         </header>
 
@@ -648,6 +682,7 @@
                 <div class="footer-content">
                     <p>Company data sourced from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
                     <p style="margin-top: 0.5rem;">Industry benchmarks from <a href="https://hagstofa.is/" target="_blank">Hagstofa Íslands</a> (Statistics Iceland).</p>
+                    <p style="margin-top: 0.5rem;">VR salary survey data from <a href="https://www.vr.is/kannanir/launakonnun/" target="_blank">VR Launarannsókn</a>.</p>
                     <p style="margin-top: 0.5rem;">Methodology: Average salary = Total wage costs ÷ Number of employees</p>
                 </div>
                 <div class="footer-meta">

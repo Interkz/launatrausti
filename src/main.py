@@ -26,10 +26,22 @@ templates = Jinja2Templates(directory=str(templates_dir))
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, year: Optional[int] = None):
+async def index(
+    request: Request,
+    year: Optional[int] = None,
+    sector: Optional[str] = None,
+):
     """Home page with ranked list of companies by average salary."""
-    companies = database.get_ranked_companies(year=year)
+    companies = database.get_ranked_companies(
+        year=year, sector=sector, exclude_sample=True
+    )
     years = database.get_available_years()
+
+    has_real_data = any(
+        c.get("source_pdf") != "sample_data"
+        for c in companies
+        if c.get("source_pdf")
+    )
 
     return templates.TemplateResponse(
         "index.html",
@@ -37,7 +49,9 @@ async def index(request: Request, year: Optional[int] = None):
             "request": request,
             "companies": companies,
             "years": years,
-            "selected_year": year
+            "selected_year": year,
+            "selected_sector": sector,
+            "has_real_data": has_real_data,
         }
     )
 
@@ -68,6 +82,10 @@ async def company_detail(request: Request, company_id: int):
 
         national_avg = hagstofa.get_national_average(latest_year)
 
+    # Load financials and salary comparison
+    financials = database.get_company_financials(company_id)
+    salary_comparison = database.get_salary_comparison(company_id)
+
     return templates.TemplateResponse(
         "company.html",
         {
@@ -77,6 +95,8 @@ async def company_detail(request: Request, company_id: int):
             "benchmark": benchmark,
             "national_avg": national_avg,
             "industry_name": industry_name,
+            "financials": financials,
+            "salary_comparison": salary_comparison,
         }
     )
 
@@ -106,6 +126,131 @@ async def benchmarks_page(request: Request, year: int = 2023):
             "national_avg": national_avg,
             "year": year,
             "years": [2024, 2023, 2022, 2021, 2020],
+        }
+    )
+
+
+@app.get("/salaries", response_class=HTMLResponse)
+async def salaries_page(
+    request: Request,
+    category: Optional[str] = None,
+    survey_date: Optional[str] = None,
+):
+    """VR salary survey data page."""
+    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
+    categories = database.get_vr_categories()
+
+    # Get distinct survey dates
+    conn = database.get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+    )
+    dates = [row["survey_date"] for row in cursor.fetchall()]
+    conn.close()
+
+    return templates.TemplateResponse(
+        "salaries.html",
+        {
+            "request": request,
+            "surveys": surveys,
+            "categories": categories,
+            "selected_category": category,
+            "dates": dates,
+            "selected_date": survey_date,
+        }
+    )
+
+
+@app.get("/company/{company_id}/financials", response_class=HTMLResponse)
+async def company_financials_page(request: Request, company_id: int):
+    """Company financials detail page."""
+    financials = database.get_company_financials(company_id)
+
+    if not financials or not financials.get("company"):
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    return templates.TemplateResponse(
+        "financials.html",
+        {
+            "request": request,
+            "company": financials["company"],
+            "reports": financials["reports"],
+            "trends": financials["trends"],
+        }
+    )
+
+
+@app.get("/launaleynd", response_class=HTMLResponse)
+async def launaleynd_page(request: Request):
+    """Salary secrecy gap analysis page."""
+    # Compare company avg salaries to VR survey averages
+    conn = database.get_connection()
+    cursor = conn.cursor()
+
+    # Get VR survey overall average (latest survey date)
+    cursor.execute("""
+        SELECT survey_date, AVG(medaltal) as vr_avg
+        FROM vr_salary_surveys
+        GROUP BY survey_date
+        ORDER BY survey_date DESC
+        LIMIT 1
+    """)
+    vr_row = cursor.fetchone()
+
+    gaps = []
+    if vr_row:
+        vr_avg = vr_row["vr_avg"]
+        vr_date = vr_row["survey_date"]
+
+        # Get companies with their latest avg salary
+        cursor.execute("""
+            SELECT
+                c.id, c.name, c.kennitala, c.sector,
+                ar.avg_salary, ar.year, ar.source_pdf
+            FROM companies c
+            JOIN annual_reports ar ON c.id = ar.company_id
+            WHERE ar.year = (
+                SELECT MAX(ar2.year) FROM annual_reports ar2
+                WHERE ar2.company_id = c.id
+            )
+            AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
+            ORDER BY ar.avg_salary ASC
+        """)
+
+        for row in cursor.fetchall():
+            company_annual = row["avg_salary"]
+            # VR survey data is monthly, company avg_salary is annual
+            vr_annual = vr_avg * 12
+            gap = company_annual - vr_annual
+            gap_pct = round((gap / vr_annual) * 100, 1) if vr_annual else 0
+
+            gaps.append({
+                "id": row["id"],
+                "name": row["name"],
+                "kennitala": row["kennitala"],
+                "sector": row["sector"],
+                "avg_salary": company_annual,
+                "year": row["year"],
+                "vr_expected": round(vr_annual),
+                "gap": round(gap),
+                "gap_pct": gap_pct,
+                "source_pdf": row["source_pdf"],
+            })
+
+        # Sort by gap ascending (largest negative gap first = most underpaying)
+        gaps.sort(key=lambda x: x["gap"])
+    else:
+        vr_date = None
+
+    conn.close()
+
+    return templates.TemplateResponse(
+        "launaleynd.html",
+        {
+            "request": request,
+            "gaps": gaps,
+            "vr_date": vr_date,
         }
     )
 
@@ -150,6 +295,50 @@ async def api_benchmarks(year: int = 2023):
         ],
         "source": "Hagstofa Íslands (Statistics Iceland)",
     }
+
+
+@app.get("/api/salaries")
+async def api_salaries(
+    category: Optional[str] = None,
+    survey_date: Optional[str] = None,
+):
+    """JSON API endpoint for VR salary survey data."""
+    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
+    categories = database.get_vr_categories()
+
+    conn = database.get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+    )
+    dates = [row["survey_date"] for row in cursor.fetchall()]
+    conn.close()
+
+    return {"surveys": surveys, "categories": categories, "dates": dates}
+
+
+@app.get("/api/company/{company_id}/financials")
+async def api_company_financials(company_id: int):
+    """JSON API endpoint for company financials."""
+    financials = database.get_company_financials(company_id)
+    if not financials or not financials.get("company"):
+        raise HTTPException(status_code=404, detail="Company not found")
+    return financials
+
+
+@app.get("/api/company/{company_id}/salary-comparison")
+async def api_salary_comparison(company_id: int):
+    """JSON API endpoint for company salary comparison with VR survey data."""
+    comparison = database.get_salary_comparison(company_id)
+    if not comparison:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return comparison
+
+
+@app.get("/api/stats")
+async def api_stats():
+    """JSON API endpoint for platform statistics."""
+    return database.get_platform_stats()
 
 
 # Health check endpoint

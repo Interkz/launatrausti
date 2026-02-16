@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Launaleynd - The Salary Secrecy Gap - Launatrausti{% endblock %}
+
+{% block content %}
+<div class="company-header">
+    <h1 style="font-size: 2.25rem;">Launaleynd</h1>
+    <p class="industry" style="margin-top: 0.75rem;">The Salary Secrecy Gap — How company-reported wages compare to union survey expectations</p>
+</div>
+
+<div class="warning">
+    This analysis compares company-reported average salaries (total wage costs / employees) to the VR union salary survey averages. Differences may reflect industry mix, seniority distribution, part-time workers, or data methodology — not necessarily underpayment. Use as a directional indicator only.
+</div>
+
+{% if gaps %}
+<div class="stats" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat-card">
+        <div class="label">Companies Analyzed</div>
+        <div class="value">{{ gaps|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">VR Survey Baseline</div>
+        <div class="value">{% if gaps %}{{ "{:,.0f}".format(gaps[0].vr_expected // 12).replace(",", ".") }}<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr/mo</span>{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Survey Date</div>
+        <div class="value" style="font-size: 1.25rem;">{{ vr_date or 'N/A' }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Salary Gap Rankings</h2>
+        <span class="source">Sorted by gap (largest deficit first)</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 60px;">#</th>
+                <th>Company</th>
+                <th>Avg Salary (Annual)</th>
+                <th>Expected (VR x12)</th>
+                <th>Gap</th>
+                <th>Gap %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in gaps %}
+            <tr>
+                <td class="rank">{{ "%02d"|format(loop.index) }}</td>
+                <td class="company-name">
+                    <span class="source-dot {{ 'real' if item.source_pdf != 'sample_data' else 'sample' }}"></span><a href="/company/{{ item.id }}">{{ item.name }}</a>
+                    {% if item.sector %}
+                    <span class="badge {% if item.sector == 'public' %}badge-public{% else %}badge-private{% endif %}" style="margin-left: 0.5rem;">{{ item.sector }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem;">{{ "{:,.0f}".format(item.avg_salary).replace(",", ".") }} kr</td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);">{{ "{:,.0f}".format(item.vr_expected).replace(",", ".") }} kr</td>
+                <td style="font-family: var(--font-mono); font-size: 0.875rem; font-weight: 600; {% if item.gap < 0 %}color: var(--lumon-accent);{% else %}color: var(--lumon-green);{% endif %}">
+                    {% if item.gap >= 0 %}+{% endif %}{{ "{:,.0f}".format(item.gap).replace(",", ".") }} kr
+                </td>
+                <td>
+                    <span class="benchmark-diff {% if item.gap_pct >= 0 %}positive{% else %}negative{% endif %}">
+                        {% if item.gap_pct >= 0 %}+{% endif %}{{ "{:.1f}".format(item.gap_pct) }}%
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Methodology</h2>
+    </div>
+    <div style="padding: 1.5rem 2rem;">
+        <p style="font-family: var(--font-sans); font-size: 0.9375rem; line-height: 1.7; margin-bottom: 1rem;">
+            The salary gap is calculated by comparing each company's reported average annual salary
+            (total wage costs divided by number of employees, from annual reports filed with Skatturinn)
+            against the overall average from VR's salary survey (Launarannsoekn), annualized by multiplying
+            the monthly survey average by 12.
+        </p>
+        <p style="font-family: var(--font-sans); font-size: 0.9375rem; line-height: 1.7; margin-bottom: 1rem;">
+            A <strong>negative gap</strong> means the company pays below the VR survey average.
+            A <strong>positive gap</strong> means the company pays above.
+        </p>
+        <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
+            Gap = Company Annual Avg Salary - (VR Monthly Survey Avg x 12)
+            // Gap % = Gap / VR Annual x 100
+        </p>
+    </div>
+</div>
+
+<div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
+    Record Count: {{ gaps|length }} // Sort: Ascending by Gap (largest deficit first)
+</div>
+
+{% else %}
+<div class="card">
+    <div class="card-header">
+        <h2>Salary Gap Analysis</h2>
+    </div>
+    <div style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+        No data available for analysis. This page requires both company annual report data and VR salary survey data.<br><br>
+        Run: <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/seed_sample.py</code> and <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/parse_vr_surveys.py</code>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

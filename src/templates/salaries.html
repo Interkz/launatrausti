@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Salary by Position - Launatrausti{% endblock %}
+
+{% block content %}
+<div class="company-header">
+    <h1 style="font-size: 2rem;">Salary by Position</h1>
+    <p class="industry">VR Launarannsoekn — Union Salary Survey Data</p>
+</div>
+
+{% if dates %}
+<div style="margin-bottom: 2rem;">
+    <div class="year-filter">
+        <a href="/salaries?{% if selected_category %}category={{ selected_category }}{% endif %}" {% if not selected_date %}class="active"{% endif %}>All Dates</a>
+        {% for date in dates %}
+        <a href="/salaries?survey_date={{ date }}{% if selected_category %}&category={{ selected_category }}{% endif %}" {% if selected_date == date %}class="active"{% endif %}>{{ date }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="content-with-sidebar">
+    <div>
+        <div class="filter-sidebar">
+            <a href="/salaries?{% if selected_date %}survey_date={{ selected_date }}{% endif %}" {% if not selected_category %}class="active"{% endif %}>All Categories</a>
+            {% for cat in categories %}
+            <a href="/salaries?category={{ cat }}{% if selected_date %}&survey_date={{ selected_date }}{% endif %}" {% if selected_category == cat %}class="active"{% endif %}>{{ cat }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        {% if surveys %}
+        {% set max_salary = surveys|map(attribute='medaltal')|max %}
+        <div class="stats" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="stat-card">
+                <div class="label">Positions</div>
+                <div class="value">{{ surveys|length }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Highest Mean</div>
+                <div class="value">{{ "{:,.0f}".format(max_salary).replace(",", ".") }}<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Category</div>
+                <div class="value" style="font-size: 1rem;">{{ selected_category or 'All' }}</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>VR Salary Survey</h2>
+                <span class="source">Source: VR Launarannsoekn</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Position</th>
+                        <th>Mean</th>
+                        <th>Median</th>
+                        <th>25th</th>
+                        <th>75th</th>
+                        <th style="text-align: right;">Respondents</th>
+                        <th style="width: 120px;">Distribution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for survey in surveys %}
+                    <tr>
+                        <td>
+                            <span style="font-family: var(--font-display); font-weight: 500;">{{ survey.starfsheiti }}</span>
+                            {% if survey.starfsstett %}
+                            <br><span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ survey.starfsstett }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="salary">{{ "{:,.0f}".format(survey.medaltal).replace(",", ".") }} kr</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.875rem;">{% if survey.midgildi %}{{ "{:,.0f}".format(survey.midgildi).replace(",", ".") }} kr{% else %}-{% endif %}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);">{% if survey.p25 %}{{ "{:,.0f}".format(survey.p25).replace(",", ".") }} kr{% else %}-{% endif %}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);">{% if survey.p75 %}{{ "{:,.0f}".format(survey.p75).replace(",", ".") }} kr{% else %}-{% endif %}</td>
+                        <td class="employees" style="text-align: right;">{% if survey.fjoldi_svara %}{{ survey.fjoldi_svara }}{% else %}-{% endif %}</td>
+                        <td>
+                            <div class="percentile-bar">
+                                <div class="percentile-fill" style="width: {{ (survey.medaltal / max_salary * 100)|round(1) }}%;"></div>
+                                {% if survey.midgildi %}
+                                <div class="percentile-marker" style="left: {{ (survey.midgildi / max_salary * 100)|round(1) }}%;"></div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
+            Record Count: {{ surveys|length }} // Sort: Descending by Mean Salary // Bar: green = mean, marker = median
+        </div>
+
+        {% else %}
+        <div class="card">
+            <div class="card-header">
+                <h2>VR Salary Survey</h2>
+            </div>
+            <div style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+                No VR survey data loaded. Run: <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/parse_vr_surveys.py</code>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
