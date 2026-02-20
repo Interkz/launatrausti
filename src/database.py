@@ -181,7 +181,7 @@ def init_db():
 
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_companies_isat ON companies(isat_code)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_companies_sector ON companies(sector)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_date ON vr_salary_surveys(survey_date)")
