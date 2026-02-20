@@ -173,7 +173,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             table_name TEXT NOT NULL,
             record_id INTEGER NOT NULL,
-            flag_type TEXT NOT NULL CHECK(flag_type IN ('outlier', 'missing', 'suspicious', 'corrected')),
+            flag_type TEXT NOT NULL CHECK(flag_type IN ('sample_data', 'low_confidence', 'outlier', 'stale')),
             message TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
