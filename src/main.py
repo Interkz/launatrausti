@@ -341,7 +341,6 @@ async def api_stats():
     return database.get_platform_stats()
 
 
-# Health check endpoint
-@app.get("/health")
+@app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "1.0.0"}
