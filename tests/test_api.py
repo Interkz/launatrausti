@@ -158,3 +158,96 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Error handling tests
+# ---------------------------------------------------------------------------
+
+
+def test_404_returns_json(client):
+    """404 responses return consistent JSON with error and status_code."""
+    response = client.get("/company/99999")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error"] == "Company not found"
+    assert data["status_code"] == 404
+
+
+def test_api_404_returns_json(client):
+    """API 404 returns consistent JSON."""
+    response = client.get("/api/company/99999")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error"] == "Company not found"
+    assert data["status_code"] == 404
+
+
+def test_validation_error_returns_422(client):
+    """Invalid query parameter type returns 422 with field details."""
+    response = client.get("/api/companies?limit=notanumber")
+    assert response.status_code == 422
+    data = response.json()
+    assert data["error"] == "Validation error"
+    assert data["status_code"] == 422
+    assert "details" in data
+    assert len(data["details"]) >= 1
+    assert "field" in data["details"][0]
+    assert "message" in data["details"][0]
+
+
+def test_validation_error_limit_too_high(client):
+    """limit > 1000 returns 422."""
+    response = client.get("/api/companies?limit=9999")
+    assert response.status_code == 422
+
+
+def test_validation_error_limit_zero(client):
+    """limit=0 returns 422."""
+    response = client.get("/api/companies?limit=0")
+    assert response.status_code == 422
+
+
+def test_unhandled_exception_returns_500(client):
+    """Unexpected exceptions return 500 JSON."""
+    with patch("src.main.database.get_platform_stats", side_effect=RuntimeError("boom")):
+        response = client.get("/api/stats")
+    assert response.status_code == 500
+    data = response.json()
+    assert data["error"] == "Internal server error"
+    assert data["status_code"] == 500
+
+
+def test_unhandled_exception_logs_traceback(client):
+    """Unhandled exceptions are logged with traceback."""
+    with (
+        patch("src.main.database.get_platform_stats", side_effect=RuntimeError("boom")),
+        patch("src.main.logger") as mock_logger,
+    ):
+        client.get("/api/stats")
+    mock_logger.error.assert_called_once()
+    log_msg = mock_logger.error.call_args[0][0]
+    assert "Unhandled exception" in log_msg
+
+
+def test_validation_error_logs_warning(client):
+    """Validation errors are logged at WARNING level."""
+    with patch("src.main.logger") as mock_logger:
+        client.get("/api/companies?limit=notanumber")
+    mock_logger.warning.assert_called_once()
+
+
+def test_financials_404_returns_json(client):
+    """GET /company/99999/financials returns 404 JSON."""
+    response = client.get("/company/99999/financials")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["status_code"] == 404
+
+
+def test_api_financials_404_returns_json(client):
+    """GET /api/company/99999/financials returns 404 JSON."""
+    response = client.get("/api/company/99999/financials")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["status_code"] == 404

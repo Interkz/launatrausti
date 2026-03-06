@@ -4,21 +4,64 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import logging
+import traceback
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+
+logger = logging.getLogger("launatrausti")
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Return consistent JSON for all HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail, "status_code": exc.status_code},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return 422 with helpful field-level error messages."""
+    errors = []
+    for err in exc.errors():
+        loc = " -> ".join(str(l) for l in err["loc"])
+        errors.append({"field": loc, "message": err["msg"]})
+    logger.warning("Validation error on %s %s: %s", request.method, request.url.path, errors)
+    return JSONResponse(
+        status_code=422,
+        content={"error": "Validation error", "status_code": 422, "details": errors},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unexpected errors — log traceback, return generic JSON."""
+    logger.error(
+        "Unhandled exception on %s %s:\n%s",
+        request.method,
+        request.url.path,
+        traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "status_code": 500},
+    )
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
@@ -142,12 +185,14 @@ async def salaries_page(
 
     # Get distinct survey dates
     conn = database.get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
-    )
-    dates = [row["survey_date"] for row in cursor.fetchall()]
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+        )
+        dates = [row["survey_date"] for row in cursor.fetchall()]
+    finally:
+        conn.close()
 
     return templates.TemplateResponse(
         "salaries.html",
@@ -186,64 +231,65 @@ async def launaleynd_page(request: Request):
     """Salary secrecy gap analysis page."""
     # Compare company avg salaries to VR survey averages
     conn = database.get_connection()
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    # Get VR survey overall average (latest survey date)
-    cursor.execute("""
-        SELECT survey_date, AVG(medaltal) as vr_avg
-        FROM vr_salary_surveys
-        GROUP BY survey_date
-        ORDER BY survey_date DESC
-        LIMIT 1
-    """)
-    vr_row = cursor.fetchone()
-
-    gaps = []
-    if vr_row:
-        vr_avg = vr_row["vr_avg"]
-        vr_date = vr_row["survey_date"]
-
-        # Get companies with their latest avg salary
+        # Get VR survey overall average (latest survey date)
         cursor.execute("""
-            SELECT
-                c.id, c.name, c.kennitala, c.sector,
-                ar.avg_salary, ar.year, ar.source_pdf
-            FROM companies c
-            JOIN annual_reports ar ON c.id = ar.company_id
-            WHERE ar.year = (
-                SELECT MAX(ar2.year) FROM annual_reports ar2
-                WHERE ar2.company_id = c.id
-            )
-            AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
-            ORDER BY ar.avg_salary ASC
+            SELECT survey_date, AVG(medaltal) as vr_avg
+            FROM vr_salary_surveys
+            GROUP BY survey_date
+            ORDER BY survey_date DESC
+            LIMIT 1
         """)
+        vr_row = cursor.fetchone()
 
-        for row in cursor.fetchall():
-            company_annual = row["avg_salary"]
-            # VR survey data is monthly, company avg_salary is annual
-            vr_annual = vr_avg * 12
-            gap = company_annual - vr_annual
-            gap_pct = round((gap / vr_annual) * 100, 1) if vr_annual else 0
+        gaps = []
+        if vr_row:
+            vr_avg = vr_row["vr_avg"]
+            vr_date = vr_row["survey_date"]
 
-            gaps.append({
-                "id": row["id"],
-                "name": row["name"],
-                "kennitala": row["kennitala"],
-                "sector": row["sector"],
-                "avg_salary": company_annual,
-                "year": row["year"],
-                "vr_expected": round(vr_annual),
-                "gap": round(gap),
-                "gap_pct": gap_pct,
-                "source_pdf": row["source_pdf"],
-            })
+            # Get companies with their latest avg salary
+            cursor.execute("""
+                SELECT
+                    c.id, c.name, c.kennitala, c.sector,
+                    ar.avg_salary, ar.year, ar.source_pdf
+                FROM companies c
+                JOIN annual_reports ar ON c.id = ar.company_id
+                WHERE ar.year = (
+                    SELECT MAX(ar2.year) FROM annual_reports ar2
+                    WHERE ar2.company_id = c.id
+                )
+                AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
+                ORDER BY ar.avg_salary ASC
+            """)
 
-        # Sort by gap ascending (largest negative gap first = most underpaying)
-        gaps.sort(key=lambda x: x["gap"])
-    else:
-        vr_date = None
+            for row in cursor.fetchall():
+                company_annual = row["avg_salary"]
+                # VR survey data is monthly, company avg_salary is annual
+                vr_annual = vr_avg * 12
+                gap = company_annual - vr_annual
+                gap_pct = round((gap / vr_annual) * 100, 1) if vr_annual else 0
 
-    conn.close()
+                gaps.append({
+                    "id": row["id"],
+                    "name": row["name"],
+                    "kennitala": row["kennitala"],
+                    "sector": row["sector"],
+                    "avg_salary": company_annual,
+                    "year": row["year"],
+                    "vr_expected": round(vr_annual),
+                    "gap": round(gap),
+                    "gap_pct": gap_pct,
+                    "source_pdf": row["source_pdf"],
+                })
+
+            # Sort by gap ascending (largest negative gap first = most underpaying)
+            gaps.sort(key=lambda x: x["gap"])
+        else:
+            vr_date = None
+    finally:
+        conn.close()
 
     return templates.TemplateResponse(
         "launaleynd.html",
@@ -256,7 +302,7 @@ async def launaleynd_page(request: Request):
 
 
 @app.get("/api/companies")
-async def api_companies(year: Optional[int] = None, limit: int = 100):
+async def api_companies(year: Optional[int] = None, limit: int = Query(default=100, ge=1, le=1000)):
     """JSON API endpoint for company rankings."""
     companies = database.get_ranked_companies(year=year, limit=limit)
     return {"companies": companies, "year": year}
@@ -307,12 +353,14 @@ async def api_salaries(
     categories = database.get_vr_categories()
 
     conn = database.get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
-    )
-    dates = [row["survey_date"] for row in cursor.fetchall()]
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+        )
+        dates = [row["survey_date"] for row in cursor.fetchall()]
+    finally:
+        conn.close()
 
     return {"surveys": surveys, "categories": categories, "dates": dates}
 
