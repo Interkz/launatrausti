@@ -5,14 +5,22 @@ FastAPI web application for viewing company salary rankings.
 """
 
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .validation import (
+    FIELD_MESSAGES_IS,
+    IndexParams,
+    BenchmarksParams,
+    SalariesParams,
+    CompaniesApiParams,
+    CompanyIdPath,
+)
 
 app = FastAPI(
     title="Launatrausti",
@@ -25,15 +33,33 @@ templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """Return structured validation errors with field-level details and Icelandic messages."""
+    details = []
+    for err in exc.errors():
+        loc = err.get("loc", ())
+        # Extract field name from location tuple (e.g. ("query", "year") -> "year")
+        field = loc[-1] if loc else "unknown"
+        message = err.get("msg", "Validation error")
+        message_is = FIELD_MESSAGES_IS.get(str(field), "Villa í inntaki")
+        details.append({
+            "field": str(field),
+            "message": message,
+            "message_is": message_is,
+            "type": err.get("type", ""),
+        })
+    return JSONResponse(status_code=422, content={"detail": details})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
-    year: Optional[int] = None,
-    sector: Optional[str] = None,
+    params: IndexParams = Depends(),
 ):
     """Home page with ranked list of companies by average salary."""
     companies = database.get_ranked_companies(
-        year=year, sector=sector, exclude_sample=True
+        year=params.year, sector=params.sector, exclude_sample=True
     )
     years = database.get_available_years()
 
@@ -49,15 +75,15 @@ async def index(
             "request": request,
             "companies": companies,
             "years": years,
-            "selected_year": year,
-            "selected_sector": sector,
+            "selected_year": params.year,
+            "selected_sector": params.sector,
             "has_real_data": has_real_data,
         }
     )
 
 
 @app.get("/company/{company_id}", response_class=HTMLResponse)
-async def company_detail(request: Request, company_id: int):
+async def company_detail(request: Request, company_id: CompanyIdPath):
     """Company detail page with all annual reports."""
     data = database.get_company_detail(company_id)
 
@@ -102,10 +128,10 @@ async def company_detail(request: Request, company_id: int):
 
 
 @app.get("/benchmarks", response_class=HTMLResponse)
-async def benchmarks_page(request: Request, year: int = 2023):
+async def benchmarks_page(request: Request, params: BenchmarksParams = Depends()):
     """Industry wage benchmarks page."""
-    benchmarks = hagstofa.get_all_benchmarks(year)
-    national_avg = hagstofa.get_national_average(year)
+    benchmarks = hagstofa.get_all_benchmarks(params.year)
+    national_avg = hagstofa.get_national_average(params.year)
 
     # Add English names to benchmark objects
     benchmarks_with_names = []
@@ -124,7 +150,7 @@ async def benchmarks_page(request: Request, year: int = 2023):
             "request": request,
             "benchmarks": benchmarks_with_names,
             "national_avg": national_avg,
-            "year": year,
+            "year": params.year,
             "years": [2024, 2023, 2022, 2021, 2020],
         }
     )
@@ -133,11 +159,10 @@ async def benchmarks_page(request: Request, year: int = 2023):
 @app.get("/salaries", response_class=HTMLResponse)
 async def salaries_page(
     request: Request,
-    category: Optional[str] = None,
-    survey_date: Optional[str] = None,
+    params: SalariesParams = Depends(),
 ):
     """VR salary survey data page."""
-    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
+    surveys = database.get_vr_surveys(category=params.category, survey_date=params.survey_date)
     categories = database.get_vr_categories()
 
     # Get distinct survey dates
@@ -155,15 +180,15 @@ async def salaries_page(
             "request": request,
             "surveys": surveys,
             "categories": categories,
-            "selected_category": category,
+            "selected_category": params.category,
             "dates": dates,
-            "selected_date": survey_date,
+            "selected_date": params.survey_date,
         }
     )
 
 
 @app.get("/company/{company_id}/financials", response_class=HTMLResponse)
-async def company_financials_page(request: Request, company_id: int):
+async def company_financials_page(request: Request, company_id: CompanyIdPath):
     """Company financials detail page."""
     financials = database.get_company_financials(company_id)
 
@@ -256,14 +281,14 @@ async def launaleynd_page(request: Request):
 
 
 @app.get("/api/companies")
-async def api_companies(year: Optional[int] = None, limit: int = 100):
+async def api_companies(params: CompaniesApiParams = Depends()):
     """JSON API endpoint for company rankings."""
-    companies = database.get_ranked_companies(year=year, limit=limit)
-    return {"companies": companies, "year": year}
+    companies = database.get_ranked_companies(year=params.year, limit=params.limit)
+    return {"companies": companies, "year": params.year}
 
 
 @app.get("/api/company/{company_id}")
-async def api_company(company_id: int):
+async def api_company(company_id: CompanyIdPath):
     """JSON API endpoint for company detail."""
     data = database.get_company_detail(company_id)
     if not data:
@@ -272,13 +297,13 @@ async def api_company(company_id: int):
 
 
 @app.get("/api/benchmarks")
-async def api_benchmarks(year: int = 2023):
+async def api_benchmarks(params: BenchmarksParams = Depends()):
     """JSON API endpoint for industry wage benchmarks from Hagstofa."""
-    benchmarks = hagstofa.get_all_benchmarks(year)
-    national_avg = hagstofa.get_national_average(year)
+    benchmarks = hagstofa.get_all_benchmarks(params.year)
+    national_avg = hagstofa.get_national_average(params.year)
 
     return {
-        "year": year,
+        "year": params.year,
         "national_average": {
             "monthly": national_avg.monthly_wage if national_avg else None,
             "annual": national_avg.annual_wage if national_avg else None,
@@ -298,12 +323,9 @@ async def api_benchmarks(year: int = 2023):
 
 
 @app.get("/api/salaries")
-async def api_salaries(
-    category: Optional[str] = None,
-    survey_date: Optional[str] = None,
-):
+async def api_salaries(params: SalariesParams = Depends()):
     """JSON API endpoint for VR salary survey data."""
-    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
+    surveys = database.get_vr_surveys(category=params.category, survey_date=params.survey_date)
     categories = database.get_vr_categories()
 
     conn = database.get_connection()
@@ -318,7 +340,7 @@ async def api_salaries(
 
 
 @app.get("/api/company/{company_id}/financials")
-async def api_company_financials(company_id: int):
+async def api_company_financials(company_id: CompanyIdPath):
     """JSON API endpoint for company financials."""
     financials = database.get_company_financials(company_id)
     if not financials or not financials.get("company"):
@@ -327,7 +349,7 @@ async def api_company_financials(company_id: int):
 
 
 @app.get("/api/company/{company_id}/salary-comparison")
-async def api_salary_comparison(company_id: int):
+async def api_salary_comparison(company_id: CompanyIdPath):
     """JSON API endpoint for company salary comparison with VR survey data."""
     comparison = database.get_salary_comparison(company_id)
     if not comparison:
