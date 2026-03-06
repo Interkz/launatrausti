@@ -4,20 +4,28 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
 
+_start_time = time.monotonic()
+
+_version_file = Path(__file__).parent.parent / "VERSION"
+_app_version = _version_file.read_text().strip() if _version_file.exists() else "unknown"
+
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    version=_app_version
 )
 
 # Set up templates
@@ -341,7 +349,27 @@ async def api_stats():
     return database.get_platform_stats()
 
 
-# Health check endpoint
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Comprehensive health check: DB connectivity, uptime, version."""
+    db_status = "connected"
+    status = "healthy"
+    status_code = 200
+
+    try:
+        conn = database.get_connection()
+        conn.execute("SELECT 1")
+        conn.close()
+    except Exception:
+        db_status = "disconnected"
+        status = "unhealthy"
+        status_code = 503
+
+    body = {
+        "status": status,
+        "uptime_seconds": round(time.monotonic() - _start_time, 2),
+        "database": db_status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": _app_version,
+    }
+    return JSONResponse(content=body, status_code=status_code)
