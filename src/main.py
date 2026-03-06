@@ -7,17 +7,64 @@ FastAPI web application for viewing company salary rankings.
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .schemas import (
+    BenchmarksResponse,
+    CompaniesResponse,
+    CompanyDetailResponse,
+    FinancialsResponse,
+    HealthResponse,
+    PlatformStatsResponse,
+    SalariesResponse,
+    SalaryComparisonResponse,
+)
+
+tags_metadata = [
+    {
+        "name": "Pages",
+        "description": "Server-rendered HTML pages. Not intended for programmatic use.",
+    },
+    {
+        "name": "Companies",
+        "description": "Company salary rankings, details, and financial data derived from annual reports (ársreikningar).",
+    },
+    {
+        "name": "Benchmarks",
+        "description": "Industry wage benchmarks from Hagstofa Íslands (Statistics Iceland).",
+    },
+    {
+        "name": "Salaries",
+        "description": "VR union salary survey data by job title and category.",
+    },
+    {
+        "name": "Platform",
+        "description": "Platform health and statistics.",
+    },
+]
 
 app = FastAPI(
     title="Launatrausti",
-    description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    summary="Icelandic Salary Transparency Platform",
+    description=(
+        "Launatrausti calculates estimated average salaries per company using public data:\n\n"
+        "**Average Salary = Launakostnaður (wage costs) ÷ Meðalfjöldi starfsmanna (employee count)**\n\n"
+        "Data comes from mandatory annual reports (ársreikningar), "
+        "Hagstofa Íslands industry benchmarks, and VR union salary surveys.\n\n"
+        "### Data Sources\n"
+        "| Source | Description |\n"
+        "|--------|-------------|\n"
+        "| **Skatturinn** | Company metadata (kennitala, ISAT code, status) |\n"
+        "| **Hagstofa Íslands** | Industry average wages by ISAT category |\n"
+        "| **VR Salary Surveys** | Job-level salary distributions |\n"
+        "| **Annual Reports (PDFs)** | Company-specific wage costs and employee counts |\n"
+    ),
+    version="0.1.0",
+    openapi_tags=tags_metadata,
 )
 
 # Set up templates
@@ -25,7 +72,7 @@ templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def index(
     request: Request,
     year: Optional[int] = None,
@@ -56,7 +103,7 @@ async def index(
     )
 
 
-@app.get("/company/{company_id}", response_class=HTMLResponse)
+@app.get("/company/{company_id}", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def company_detail(request: Request, company_id: int):
     """Company detail page with all annual reports."""
     data = database.get_company_detail(company_id)
@@ -101,7 +148,7 @@ async def company_detail(request: Request, company_id: int):
     )
 
 
-@app.get("/benchmarks", response_class=HTMLResponse)
+@app.get("/benchmarks", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def benchmarks_page(request: Request, year: int = 2023):
     """Industry wage benchmarks page."""
     benchmarks = hagstofa.get_all_benchmarks(year)
@@ -130,7 +177,7 @@ async def benchmarks_page(request: Request, year: int = 2023):
     )
 
 
-@app.get("/salaries", response_class=HTMLResponse)
+@app.get("/salaries", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def salaries_page(
     request: Request,
     category: Optional[str] = None,
@@ -162,7 +209,7 @@ async def salaries_page(
     )
 
 
-@app.get("/company/{company_id}/financials", response_class=HTMLResponse)
+@app.get("/company/{company_id}/financials", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def company_financials_page(request: Request, company_id: int):
     """Company financials detail page."""
     financials = database.get_company_financials(company_id)
@@ -181,7 +228,7 @@ async def company_financials_page(request: Request, company_id: int):
     )
 
 
-@app.get("/launaleynd", response_class=HTMLResponse)
+@app.get("/launaleynd", response_class=HTMLResponse, tags=["Pages"], include_in_schema=False)
 async def launaleynd_page(request: Request):
     """Salary secrecy gap analysis page."""
     # Compare company avg salaries to VR survey averages
@@ -255,25 +302,41 @@ async def launaleynd_page(request: Request):
     )
 
 
-@app.get("/api/companies")
-async def api_companies(year: Optional[int] = None, limit: int = 100):
-    """JSON API endpoint for company rankings."""
+@app.get("/api/companies", response_model=CompaniesResponse, tags=["Companies"])
+async def api_companies(
+    year: Optional[int] = Query(None, description="Filter by report year. Omit to get latest year per company."),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of companies to return"),
+):
+    """List companies ranked by average salary (highest first).
+
+    Returns company metadata and salary figures from annual reports.
+    Each company's average salary is calculated as: launakostnaður ÷ starfsmenn.
+    """
     companies = database.get_ranked_companies(year=year, limit=limit)
     return {"companies": companies, "year": year}
 
 
-@app.get("/api/company/{company_id}")
+@app.get("/api/company/{company_id}", response_model=CompanyDetailResponse, tags=["Companies"])
 async def api_company(company_id: int):
-    """JSON API endpoint for company detail."""
+    """Get detailed information for a single company.
+
+    Returns company metadata and all available annual reports sorted by year (newest first).
+    """
     data = database.get_company_detail(company_id)
     if not data:
         raise HTTPException(status_code=404, detail="Company not found")
     return data
 
 
-@app.get("/api/benchmarks")
-async def api_benchmarks(year: int = 2023):
-    """JSON API endpoint for industry wage benchmarks from Hagstofa."""
+@app.get("/api/benchmarks", response_model=BenchmarksResponse, tags=["Benchmarks"])
+async def api_benchmarks(
+    year: int = Query(2023, ge=2014, le=2025, description="Year for benchmark data (available: 2014-2024)"),
+):
+    """Get industry wage benchmarks from Hagstofa Íslands.
+
+    Returns average wages by ISAT industry category and the national average.
+    Data is sourced from Hagstofa table VIN02003 (wages by industry).
+    """
     benchmarks = hagstofa.get_all_benchmarks(year)
     national_avg = hagstofa.get_national_average(year)
 
@@ -297,12 +360,16 @@ async def api_benchmarks(year: int = 2023):
     }
 
 
-@app.get("/api/salaries")
+@app.get("/api/salaries", response_model=SalariesResponse, tags=["Salaries"])
 async def api_salaries(
-    category: Optional[str] = None,
-    survey_date: Optional[str] = None,
+    category: Optional[str] = Query(None, description="Filter by job category (starfsstett)"),
+    survey_date: Optional[str] = Query(None, description="Filter by survey date (YYYY-MM format)"),
 ):
-    """JSON API endpoint for VR salary survey data."""
+    """Get VR union salary survey data.
+
+    Returns salary distributions by job title, including mean, median, and percentiles.
+    Can be filtered by job category and survey date.
+    """
     surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
     categories = database.get_vr_categories()
 
@@ -317,31 +384,45 @@ async def api_salaries(
     return {"surveys": surveys, "categories": categories, "dates": dates}
 
 
-@app.get("/api/company/{company_id}/financials")
+@app.get("/api/company/{company_id}/financials", response_model=FinancialsResponse, tags=["Companies"])
 async def api_company_financials(company_id: int):
-    """JSON API endpoint for company financials."""
+    """Get company financial history and growth trends.
+
+    Returns all annual reports with extended financial fields (profit, operating costs,
+    equity ratio, wage-to-revenue ratio) and computed CAGR trends when multiple years exist.
+    """
     financials = database.get_company_financials(company_id)
     if not financials or not financials.get("company"):
         raise HTTPException(status_code=404, detail="Company not found")
     return financials
 
 
-@app.get("/api/company/{company_id}/salary-comparison")
+@app.get("/api/company/{company_id}/salary-comparison", response_model=SalaryComparisonResponse, tags=["Companies"])
 async def api_salary_comparison(company_id: int):
-    """JSON API endpoint for company salary comparison with VR survey data."""
+    """Compare a company's average salary to VR survey averages.
+
+    Shows how much a company's computed average salary deviates from the VR union
+    survey average, with the percentage difference and survey range.
+    """
     comparison = database.get_salary_comparison(company_id)
     if not comparison:
         raise HTTPException(status_code=404, detail="Company not found")
     return comparison
 
 
-@app.get("/api/stats")
+@app.get("/api/stats", response_model=PlatformStatsResponse, tags=["Platform"])
 async def api_stats():
-    """JSON API endpoint for platform statistics."""
+    """Get platform-wide statistics.
+
+    Returns counts of companies, reports, survey entries, and the year range of available data.
+    """
     return database.get_platform_stats()
 
 
-# Health check endpoint
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse, tags=["Platform"])
 async def health():
+    """Health check endpoint.
+
+    Returns `{"status": "ok"}` when the service is running.
+    """
     return {"status": "ok"}
