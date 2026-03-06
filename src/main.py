@@ -4,11 +4,15 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import os
+import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
@@ -19,6 +23,44 @@ app = FastAPI(
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+# --- CORS middleware ---
+_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*")
+origins = [o.strip() for o in _allowed_origins.split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Rate limiter middleware (60 requests/minute per IP) ---
+RATE_LIMIT = 60
+RATE_WINDOW = 60  # seconds
+
+_rate_store: dict[str, list[float]] = defaultdict(list)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    window_start = now - RATE_WINDOW
+
+    # Prune old timestamps
+    timestamps = _rate_store[client_ip]
+    _rate_store[client_ip] = [t for t in timestamps if t > window_start]
+
+    if len(_rate_store[client_ip]) >= RATE_LIMIT:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Try again later."},
+        )
+
+    _rate_store[client_ip].append(now)
+    return await call_next(request)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
