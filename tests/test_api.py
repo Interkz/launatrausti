@@ -153,8 +153,61 @@ def test_api_salary_comparison_json(client, sample_company):
     assert "report_year" in data
 
 
-def test_health(client):
-    """GET /health returns {"status": "ok"}."""
+def test_health_returns_json_with_required_fields(client):
+    """GET /health returns JSON with status, uptime, database, timestamp, version."""
+    response = client.get("/health")
+    data = response.json()
+    assert "status" in data
+    assert "uptime_seconds" in data
+    assert "database" in data
+    assert "timestamp" in data
+    assert "version" in data
+
+
+def test_health_status_healthy_when_db_ok(client):
+    """GET /health returns 200 with status 'healthy' when DB is reachable."""
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["database"] == "connected"
+
+
+def test_health_uptime_is_positive(client):
+    """Uptime should be a non-negative number of seconds."""
+    response = client.get("/health")
+    data = response.json()
+    assert isinstance(data["uptime_seconds"], (int, float))
+    assert data["uptime_seconds"] >= 0
+
+
+def test_health_timestamp_is_iso_format(client):
+    """Timestamp should be a valid ISO 8601 string."""
+    from datetime import datetime
+    response = client.get("/health")
+    data = response.json()
+    # Should not raise
+    datetime.fromisoformat(data["timestamp"])
+
+
+def test_health_version_matches_version_file(client):
+    """Version should match the VERSION file contents."""
+    from pathlib import Path
+    version_file = Path(__file__).parent.parent / "VERSION"
+    expected = version_file.read_text().strip()
+    response = client.get("/health")
+    data = response.json()
+    assert data["version"] == expected
+
+
+def test_health_unhealthy_returns_503(test_db):
+    """GET /health returns 503 when database is unreachable."""
+    with patch.object(db, "DB_PATH", test_db):
+        c = TestClient(app, raise_server_exceptions=False)
+        # Simulate DB failure by pointing to an invalid path
+        with patch.object(db, "DB_PATH", "/nonexistent/path/db.sqlite"):
+            response = c.get("/health")
+            assert response.status_code == 503
+            data = response.json()
+            assert data["status"] == "unhealthy"
+            assert data["database"] == "disconnected"
