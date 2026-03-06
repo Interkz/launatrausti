@@ -7,12 +7,26 @@ FastAPI web application for viewing company salary rankings.
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+
+DEFAULT_LIMIT = 20
+MAX_LIMIT = 100
+
+
+def paginate(items: list, total: int, offset: int, limit: int) -> dict:
+    """Build a consistent paginated response envelope."""
+    return {
+        "items": items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + limit < total,
+    }
 
 app = FastAPI(
     title="Launatrausti",
@@ -32,7 +46,7 @@ async def index(
     sector: Optional[str] = None,
 ):
     """Home page with ranked list of companies by average salary."""
-    companies = database.get_ranked_companies(
+    companies, _ = database.get_ranked_companies(
         year=year, sector=sector, exclude_sample=True
     )
     years = database.get_available_years()
@@ -137,7 +151,7 @@ async def salaries_page(
     survey_date: Optional[str] = None,
 ):
     """VR salary survey data page."""
-    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
+    surveys, _ = database.get_vr_surveys(category=category, survey_date=survey_date)
     categories = database.get_vr_categories()
 
     # Get distinct survey dates
@@ -256,10 +270,14 @@ async def launaleynd_page(request: Request):
 
 
 @app.get("/api/companies")
-async def api_companies(year: Optional[int] = None, limit: int = 100):
+async def api_companies(
+    year: Optional[int] = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+):
     """JSON API endpoint for company rankings."""
-    companies = database.get_ranked_companies(year=year, limit=limit)
-    return {"companies": companies, "year": year}
+    items, total = database.get_ranked_companies(year=year, limit=limit, offset=offset)
+    return paginate(items, total, offset, limit)
 
 
 @app.get("/api/company/{company_id}")
@@ -272,49 +290,61 @@ async def api_company(company_id: int):
 
 
 @app.get("/api/benchmarks")
-async def api_benchmarks(year: int = 2023):
+async def api_benchmarks(
+    year: int = 2023,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+):
     """JSON API endpoint for industry wage benchmarks from Hagstofa."""
     benchmarks = hagstofa.get_all_benchmarks(year)
     national_avg = hagstofa.get_national_average(year)
 
-    return {
-        "year": year,
-        "national_average": {
-            "monthly": national_avg.monthly_wage if national_avg else None,
-            "annual": national_avg.annual_wage if national_avg else None,
-        } if national_avg else None,
-        "industries": [
-            {
-                "code": b.industry_code,
-                "name": b.industry_name,
-                "name_en": hagstofa.INDUSTRY_NAMES_EN.get(b.industry_code, b.industry_code),
-                "monthly_wage": b.monthly_wage,
-                "annual_wage": b.annual_wage,
-            }
-            for b in benchmarks
-        ],
-        "source": "Hagstofa Íslands (Statistics Iceland)",
-    }
+    all_items = [
+        {
+            "code": b.industry_code,
+            "name": b.industry_name,
+            "name_en": hagstofa.INDUSTRY_NAMES_EN.get(b.industry_code, b.industry_code),
+            "monthly_wage": b.monthly_wage,
+            "annual_wage": b.annual_wage,
+        }
+        for b in benchmarks
+    ]
+    total = len(all_items)
+    items = all_items[offset:offset + limit]
+
+    result = paginate(items, total, offset, limit)
+    result["year"] = year
+    result["national_average"] = {
+        "monthly": national_avg.monthly_wage if national_avg else None,
+        "annual": national_avg.annual_wage if national_avg else None,
+    } if national_avg else None
+    result["source"] = "Hagstofa Íslands (Statistics Iceland)"
+    return result
 
 
 @app.get("/api/salaries")
 async def api_salaries(
     category: Optional[str] = None,
     survey_date: Optional[str] = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
 ):
     """JSON API endpoint for VR salary survey data."""
-    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
-    categories = database.get_vr_categories()
+    items, total = database.get_vr_surveys(
+        category=category, survey_date=survey_date, limit=limit, offset=offset
+    )
+    result = paginate(items, total, offset, limit)
+    result["categories"] = database.get_vr_categories()
 
     conn = database.get_connection()
     cursor = conn.cursor()
     cursor.execute(
         "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
     )
-    dates = [row["survey_date"] for row in cursor.fetchall()]
+    result["dates"] = [row["survey_date"] for row in cursor.fetchall()]
     conn.close()
 
-    return {"surveys": surveys, "categories": categories, "dates": dates}
+    return result
 
 
 @app.get("/api/company/{company_id}/financials")
