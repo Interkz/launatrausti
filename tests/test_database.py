@@ -46,15 +46,17 @@ def test_get_ranked_companies_excludes_sample(test_db):
         db.flag_sample_data()
 
         # With exclude_sample=True (default), only real company appears
-        ranked = db.get_ranked_companies(year=2023, exclude_sample=True)
+        ranked, total = db.get_ranked_companies(year=2023, exclude_sample=True)
         names = [r["name"] for r in ranked]
         assert "Real Company" in names
         assert "Sample Company" not in names
+        assert total == len(ranked)
 
         # With exclude_sample=False, both appear
-        ranked_all = db.get_ranked_companies(year=2023, exclude_sample=False)
+        ranked_all, total_all = db.get_ranked_companies(year=2023, exclude_sample=False)
         names_all = [r["name"] for r in ranked_all]
         assert "Sample Company" in names_all
+        assert total_all == len(ranked_all)
 
 
 def test_save_vr_survey(test_db):
@@ -75,18 +77,21 @@ def test_save_vr_survey(test_db):
         sid = db.save_vr_survey(survey)
         assert sid is not None
 
-        surveys = db.get_vr_surveys()
+        surveys, total = db.get_vr_surveys()
         assert len(surveys) == 1
+        assert total == 1
         assert surveys[0]["starfsheiti"] == "Forritari"
 
 
 def test_get_vr_surveys_filter_by_category(test_db, sample_vr_surveys):
     with patch.object(db, "DB_PATH", test_db):
-        taekni = db.get_vr_surveys(category="Taekni")
+        taekni, taekni_total = db.get_vr_surveys(category="Taekni")
         assert len(taekni) == 2  # Hugbunadarverkfraedingur + Kerfisstjori
+        assert taekni_total == 2
 
-        stjornun = db.get_vr_surveys(category="Stjornun")
+        stjornun, stjornun_total = db.get_vr_surveys(category="Stjornun")
         assert len(stjornun) == 2  # Verkefnastjori + Markadsstjori
+        assert stjornun_total == 2
 
 
 def test_get_company_financials(test_db, sample_reports):
