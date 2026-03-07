@@ -13,12 +13,15 @@ from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .cors import setup_cors
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+setup_cors(app)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
