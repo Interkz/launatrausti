@@ -179,6 +179,18 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL CHECK(action IN ('create', 'update', 'delete')),
+            resource_type TEXT NOT NULL,
+            resource_id INTEGER NOT NULL,
+            changes_json TEXT,
+            ip_address TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
@@ -187,9 +199,92 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_date ON vr_salary_surveys(survey_date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_stett ON vr_salary_surveys(starfsstett)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scrape_log_status ON scrape_log(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id)")
 
     conn.commit()
     conn.close()
+
+
+def log_action(
+    action: str,
+    resource_type: str,
+    resource_id: int,
+    changes: Optional[dict] = None,
+    ip_address: Optional[str] = None,
+) -> int:
+    """Record an audit log entry. Returns the entry ID."""
+    import json as _json
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    changes_json = _json.dumps(changes) if changes is not None else None
+    cursor.execute(
+        """INSERT INTO audit_log (action, resource_type, resource_id, changes_json, ip_address, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (action, resource_type, resource_id, changes_json, ip_address, datetime.now()),
+    )
+    entry_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return entry_id
+
+
+def get_audit_log(
+    limit: int = 50,
+    offset: int = 0,
+    resource_type: Optional[str] = None,
+    action: Optional[str] = None,
+) -> list[dict]:
+    """Return audit log entries, newest first, with optional filters."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    where_clauses = []
+    params: list = []
+
+    if resource_type:
+        where_clauses.append("resource_type = ?")
+        params.append(resource_type)
+    if action:
+        where_clauses.append("action = ?")
+        params.append(action)
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+    params.extend([limit, offset])
+
+    cursor.execute(
+        f"SELECT * FROM audit_log WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?",
+        params,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_audit_log_count(
+    resource_type: Optional[str] = None,
+    action: Optional[str] = None,
+) -> int:
+    """Return total count of audit log entries matching filters."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    where_clauses = []
+    params: list = []
+
+    if resource_type:
+        where_clauses.append("resource_type = ?")
+        params.append(resource_type)
+    if action:
+        where_clauses.append("action = ?")
+        params.append(action)
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+    cursor.execute(f"SELECT COUNT(*) as cnt FROM audit_log WHERE {where_sql}", params)
+    count = cursor.fetchone()["cnt"]
+    conn.close()
+    return count
 
 
 def get_or_create_company(kennitala: str, name: str, isat_code: Optional[str] = None) -> int:
@@ -207,15 +302,19 @@ def get_or_create_company(kennitala: str, name: str, isat_code: Optional[str] = 
             "UPDATE companies SET name = ?, isat_code = COALESCE(?, isat_code) WHERE id = ?",
             (name, isat_code, company_id)
         )
+        conn.commit()
+        conn.close()
+        log_action("update", "company", company_id, {"name": name, "isat_code": isat_code})
     else:
         cursor.execute(
             "INSERT INTO companies (kennitala, name, isat_code) VALUES (?, ?, ?)",
             (kennitala, name, isat_code)
         )
         company_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        log_action("create", "company", company_id, {"kennitala": kennitala, "name": name, "isat_code": isat_code})
 
-    conn.commit()
-    conn.close()
     return company_id
 
 
@@ -265,6 +364,12 @@ def save_annual_report(
     report_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    log_action(
+        "create" if report_id else "update",
+        "annual_report",
+        report_id,
+        {"company_id": company_id, "year": year, "launakostnadur": launakostnadur, "starfsmenn": starfsmenn},
+    )
     return report_id
 
 
@@ -657,6 +762,15 @@ def delete_sample_data() -> tuple[int, int]:
 
     conn.commit()
     conn.close()
+
+    if reports_deleted or companies_deleted:
+        log_action(
+            "delete",
+            "sample_data",
+            0,
+            {"reports_deleted": reports_deleted, "companies_deleted": companies_deleted},
+        )
+
     return (reports_deleted, companies_deleted)
 
 
