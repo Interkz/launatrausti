@@ -255,6 +255,16 @@ async def launaleynd_page(request: Request):
     )
 
 
+@app.get("/api/search")
+async def api_search(q: str = "", limit: int = 20):
+    """Search across companies and VR salary surveys."""
+    q = q.strip()
+    if not q:
+        return {"query": q, "companies": [], "vr_surveys": []}
+    results = database.search(q, limit=min(limit, 20))
+    return {"query": q, **results}
+
+
 @app.get("/api/companies")
 async def api_companies(year: Optional[int] = None, limit: int = 100):
     """JSON API endpoint for company rankings."""
