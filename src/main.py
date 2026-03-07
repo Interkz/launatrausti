@@ -13,12 +13,15 @@ from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .rate_limit import RateLimitMiddleware
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
