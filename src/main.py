@@ -4,11 +4,15 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import csv
+import io
+import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from . import database
@@ -339,6 +343,51 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+EXPORT_TABLES = ["companies", "annual_reports", "vr_salary_surveys", "scrape_log", "data_flags"]
+
+
+@app.get("/api/admin/export")
+async def admin_export(format: Optional[str] = None):
+    """Full database export as JSON (default) or CSV zip."""
+    conn = database.get_connection()
+    cursor = conn.cursor()
+
+    if format == "csv":
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for table in EXPORT_TABLES:
+                cursor.execute(f"SELECT * FROM {table}")
+                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+
+                csv_buf = io.StringIO()
+                writer = csv.writer(csv_buf)
+                writer.writerow(columns)
+                for row in rows:
+                    writer.writerow(list(row))
+
+                zf.writestr(f"{table}.csv", csv_buf.getvalue())
+
+        conn.close()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="launatrausti_export_{timestamp}.zip"'},
+        )
+
+    # Default: JSON export
+    export = {"exported_at": datetime.now().isoformat(), "tables": {}}
+    for table in EXPORT_TABLES:
+        cursor.execute(f"SELECT * FROM {table}")
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        export["tables"][table] = [dict(zip(columns, row)) for row in rows]
+
+    conn.close()
+    return export
 
 
 # Health check endpoint
