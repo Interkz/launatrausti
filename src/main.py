@@ -4,21 +4,60 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import logging
+import uuid
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database
 from . import hagstofa
 
+# --- Request ID context and logging ---
+
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
+
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id_ctx.get("-")
+        return True
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        rid = request.headers.get("x-request-id") or str(uuid.uuid4())
+        request_id_ctx.set(rid)
+        request.state.request_id = rid
+        logger.info("%s %s", request.method, request.url.path)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        logger.info("%s %s -> %s", request.method, request.url.path, response.status_code)
+        return response
+
+
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] [%(request_id)s] %(message)s",
+    level=logging.INFO,
+)
+# Attach filter to root handler so %(request_id)s is always available
+for _handler in logging.root.handlers:
+    _handler.addFilter(RequestIdFilter())
+
+logger = logging.getLogger("launatrausti")
+
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    version="0.1.0",
 )
+
+app.add_middleware(RequestIdMiddleware)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
