@@ -135,3 +135,140 @@ def test_get_platform_stats(test_db, sample_reports, sample_vr_surveys):
         assert stats["total_companies"] >= 1
         assert stats["total_reports"] >= 3
         assert stats["total_vr_surveys"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Bulk operations
+# ---------------------------------------------------------------------------
+
+
+def test_bulk_create_companies(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        result = db.bulk_create_companies([
+            {"kennitala": "1000000001", "name": "Bulk Co 1", "isat_code": "62.01"},
+            {"kennitala": "1000000002", "name": "Bulk Co 2"},
+            {"kennitala": "1000000003", "name": "Bulk Co 3"},
+        ])
+        assert result["created"] == 3
+        assert result["errors"] == []
+
+        stats = db.get_platform_stats()
+        assert stats["total_companies"] == 3
+
+
+def test_bulk_create_companies_duplicate(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        db.get_or_create_company("9990000001", "Existing Corp")
+        result = db.bulk_create_companies([
+            {"kennitala": "9990000001", "name": "Duplicate"},
+            {"kennitala": "9990000002", "name": "New One"},
+        ])
+        assert result["created"] == 1
+        assert len(result["errors"]) == 1
+        assert "already exists" in result["errors"][0]["error"]
+
+
+def test_bulk_create_companies_missing_field(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        result = db.bulk_create_companies([
+            {"kennitala": "8880000001"},  # missing name
+        ])
+        assert result["created"] == 0
+        assert len(result["errors"]) == 1
+        assert "Missing required field" in result["errors"][0]["error"]
+
+
+def test_bulk_delete_companies(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        id1 = db.get_or_create_company("7770000001", "Del Co 1")
+        id2 = db.get_or_create_company("7770000002", "Del Co 2")
+        # Add a report to ensure cascade delete
+        db.save_annual_report(id1, 2023, 50_000_000, 5.0, "test.pdf")
+
+        result = db.bulk_delete_companies([id1, id2])
+        assert result["deleted"] == 2
+        assert result["errors"] == []
+
+        assert db.get_company_detail(id1) is None
+        assert db.get_company_detail(id2) is None
+
+
+def test_bulk_delete_companies_not_found(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        result = db.bulk_delete_companies([99999])
+        assert result["deleted"] == 0
+        assert len(result["errors"]) == 1
+        assert "not found" in result["errors"][0]["error"]
+
+
+def test_bulk_create_reports(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("6660000001", "Reports Corp")
+        result = db.bulk_create_reports([
+            {
+                "company_id": cid, "year": 2021,
+                "launakostnadur": 30_000_000, "starfsmenn": 3.0,
+                "source_pdf": "bulk_2021.pdf",
+            },
+            {
+                "company_id": cid, "year": 2022,
+                "launakostnadur": 40_000_000, "starfsmenn": 4.0,
+                "source_pdf": "bulk_2022.pdf",
+            },
+        ])
+        assert result["created"] == 2
+        assert result["errors"] == []
+
+        detail = db.get_company_detail(cid)
+        assert len(detail["reports"]) == 2
+
+
+def test_bulk_create_reports_invalid_company(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        result = db.bulk_create_reports([
+            {
+                "company_id": 99999, "year": 2023,
+                "launakostnadur": 10_000_000, "starfsmenn": 1.0,
+                "source_pdf": "x.pdf",
+            },
+        ])
+        assert result["created"] == 0
+        assert len(result["errors"]) == 1
+        assert "not found" in result["errors"][0]["error"]
+
+
+def test_bulk_create_reports_zero_employees(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("6660000002", "Zero Staff Corp")
+        result = db.bulk_create_reports([
+            {
+                "company_id": cid, "year": 2023,
+                "launakostnadur": 10_000_000, "starfsmenn": 0,
+                "source_pdf": "x.pdf",
+            },
+        ])
+        assert result["created"] == 0
+        assert len(result["errors"]) == 1
+        assert "starfsmenn" in result["errors"][0]["error"]
+
+
+def test_bulk_delete_reports(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("5550000001", "Del Reports Corp")
+        r1 = db.save_annual_report(cid, 2021, 30_000_000, 3.0, "r1.pdf")
+        r2 = db.save_annual_report(cid, 2022, 40_000_000, 4.0, "r2.pdf")
+
+        result = db.bulk_delete_reports([r1, r2])
+        assert result["deleted"] == 2
+        assert result["errors"] == []
+
+        detail = db.get_company_detail(cid)
+        assert len(detail["reports"]) == 0
+
+
+def test_bulk_delete_reports_not_found(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        result = db.bulk_delete_reports([99999])
+        assert result["deleted"] == 0
+        assert len(result["errors"]) == 1
+        assert "not found" in result["errors"][0]["error"]

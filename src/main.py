@@ -10,9 +10,47 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 
 from . import database
 from . import hagstofa
+
+
+# --- Pydantic models for bulk operations ---
+
+MAX_BULK_SIZE = 100
+
+
+class CompanyCreate(BaseModel):
+    kennitala: str
+    name: str
+    isat_code: Optional[str] = None
+
+
+class ReportCreate(BaseModel):
+    company_id: int
+    year: int
+    launakostnadur: int
+    starfsmenn: float
+    source_pdf: str
+    tekjur: Optional[int] = None
+    hagnadur: Optional[int] = None
+    rekstrarkostnadur: Optional[int] = None
+    eiginfjarhlufall: Optional[float] = None
+    source_type: str = "pdf"
+    confidence: float = 1.0
+
+
+class BulkCreateCompaniesRequest(BaseModel):
+    items: list[CompanyCreate] = Field(..., max_length=MAX_BULK_SIZE)
+
+
+class BulkCreateReportsRequest(BaseModel):
+    items: list[ReportCreate] = Field(..., max_length=MAX_BULK_SIZE)
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., max_length=MAX_BULK_SIZE)
 
 app = FastAPI(
     title="Launatrausti",
@@ -339,6 +377,39 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+# ---------------------------------------------------------------------------
+# Bulk operations
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/companies/bulk", status_code=200)
+async def bulk_create_companies(body: BulkCreateCompaniesRequest):
+    """Bulk create companies. Accepts up to 100 items."""
+    result = database.bulk_create_companies([item.model_dump() for item in body.items])
+    return result
+
+
+@app.delete("/api/companies/bulk", status_code=200)
+async def bulk_delete_companies(body: BulkDeleteRequest):
+    """Bulk delete companies by ID. Accepts up to 100 IDs."""
+    result = database.bulk_delete_companies(body.ids)
+    return result
+
+
+@app.post("/api/reports/bulk", status_code=200)
+async def bulk_create_reports(body: BulkCreateReportsRequest):
+    """Bulk create annual reports. Accepts up to 100 items."""
+    result = database.bulk_create_reports([item.model_dump() for item in body.items])
+    return result
+
+
+@app.delete("/api/reports/bulk", status_code=200)
+async def bulk_delete_reports(body: BulkDeleteRequest):
+    """Bulk delete annual reports by ID. Accepts up to 100 IDs."""
+    result = database.bulk_delete_reports(body.ids)
+    return result
 
 
 # Health check endpoint

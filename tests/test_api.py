@@ -158,3 +158,86 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Bulk operation API tests
+# ---------------------------------------------------------------------------
+
+
+def test_bulk_create_companies(client):
+    """POST /api/companies/bulk creates multiple companies."""
+    response = client.post("/api/companies/bulk", json={
+        "items": [
+            {"kennitala": "8880000001", "name": "Bulk API Co 1"},
+            {"kennitala": "8880000002", "name": "Bulk API Co 2", "isat_code": "64.19"},
+        ]
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["created"] == 2
+    assert data["errors"] == []
+
+
+def test_bulk_create_companies_validation_error(client):
+    """POST /api/companies/bulk rejects items missing required fields."""
+    response = client.post("/api/companies/bulk", json={
+        "items": [{"kennitala": "8880000003"}]  # missing name
+    })
+    assert response.status_code == 422  # Pydantic validation
+
+
+def test_bulk_create_companies_exceeds_limit(client):
+    """POST /api/companies/bulk rejects > 100 items."""
+    items = [{"kennitala": f"00{i:08d}", "name": f"Co {i}"} for i in range(101)]
+    response = client.post("/api/companies/bulk", json={"items": items})
+    assert response.status_code == 422
+
+
+def test_bulk_delete_companies_api(client, sample_company):
+    """DELETE /api/companies/bulk deletes companies by ID."""
+    response = client.request("DELETE", "/api/companies/bulk", json={
+        "ids": [sample_company]
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deleted"] == 1
+
+
+def test_bulk_delete_companies_not_found(client):
+    """DELETE /api/companies/bulk reports errors for missing IDs."""
+    response = client.request("DELETE", "/api/companies/bulk", json={
+        "ids": [99999]
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deleted"] == 0
+    assert len(data["errors"]) == 1
+
+
+def test_bulk_create_reports_api(client, sample_company):
+    """POST /api/reports/bulk creates multiple reports."""
+    response = client.post("/api/reports/bulk", json={
+        "items": [
+            {
+                "company_id": sample_company, "year": 2020,
+                "launakostnadur": 25_000_000, "starfsmenn": 2.5,
+                "source_pdf": "bulk_test.pdf",
+            },
+        ]
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["created"] == 1
+    assert data["errors"] == []
+
+
+def test_bulk_delete_reports_api(client):
+    """DELETE /api/reports/bulk reports errors for missing IDs."""
+    response = client.request("DELETE", "/api/reports/bulk", json={
+        "ids": [99999]
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deleted"] == 0
+    assert len(data["errors"]) == 1

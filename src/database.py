@@ -622,6 +622,215 @@ def get_pending_scrapes(source: str) -> list[ScrapeLogEntry]:
     ]
 
 
+def bulk_create_companies(
+    items: list[dict],
+) -> dict:
+    """Create multiple companies in a single transaction.
+
+    Each item should have: kennitala, name, and optionally isat_code.
+    Returns {"created": count, "errors": [{"index": i, "error": msg}, ...]}.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    created = 0
+    errors = []
+
+    try:
+        for i, item in enumerate(items):
+            try:
+                kennitala = item["kennitala"]
+                name = item["name"]
+                isat_code = item.get("isat_code")
+
+                cursor.execute(
+                    "SELECT id FROM companies WHERE kennitala = ?", (kennitala,)
+                )
+                existing = cursor.fetchone()
+                if existing:
+                    errors.append({"index": i, "kennitala": kennitala, "error": f"Company with kennitala {kennitala} already exists"})
+                    continue
+
+                cursor.execute(
+                    "INSERT INTO companies (kennitala, name, isat_code) VALUES (?, ?, ?)",
+                    (kennitala, name, isat_code),
+                )
+                created += 1
+            except KeyError as e:
+                errors.append({"index": i, "error": f"Missing required field: {e}"})
+            except Exception as e:
+                errors.append({"index": i, "error": str(e)})
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {"created": created, "errors": errors}
+
+
+def bulk_delete_companies(ids: list[int]) -> dict:
+    """Delete multiple companies by ID in a single transaction.
+
+    Also deletes associated annual_reports (cascade).
+    Returns {"deleted": count, "errors": [{"index": i, "error": msg}, ...]}.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    deleted = 0
+    errors = []
+
+    try:
+        for i, company_id in enumerate(ids):
+            try:
+                cursor.execute("SELECT id FROM companies WHERE id = ?", (company_id,))
+                if not cursor.fetchone():
+                    errors.append({"index": i, "id": company_id, "error": f"Company {company_id} not found"})
+                    continue
+
+                cursor.execute(
+                    "DELETE FROM annual_reports WHERE company_id = ?", (company_id,)
+                )
+                cursor.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+                deleted += 1
+            except Exception as e:
+                errors.append({"index": i, "id": company_id, "error": str(e)})
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {"deleted": deleted, "errors": errors}
+
+
+def bulk_create_reports(items: list[dict]) -> dict:
+    """Create multiple annual reports in a single transaction.
+
+    Each item should have: company_id, year, launakostnadur, starfsmenn, source_pdf.
+    Optional: tekjur, hagnadur, rekstrarkostnadur, eiginfjarhlufall, source_type, confidence.
+    Returns {"created": count, "errors": [{"index": i, "error": msg}, ...]}.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    created = 0
+    errors = []
+
+    try:
+        for i, item in enumerate(items):
+            try:
+                company_id = item["company_id"]
+                year = item["year"]
+                launakostnadur = item["launakostnadur"]
+                starfsmenn = item["starfsmenn"]
+                source_pdf = item["source_pdf"]
+                tekjur = item.get("tekjur")
+                hagnadur = item.get("hagnadur")
+                rekstrarkostnadur = item.get("rekstrarkostnadur")
+                eiginfjarhlufall = item.get("eiginfjarhlufall")
+                source_type = item.get("source_type", "pdf")
+                confidence = item.get("confidence", 1.0)
+
+                # Validate company exists
+                cursor.execute(
+                    "SELECT id FROM companies WHERE id = ?", (company_id,)
+                )
+                if not cursor.fetchone():
+                    errors.append({"index": i, "error": f"Company {company_id} not found"})
+                    continue
+
+                if starfsmenn <= 0:
+                    errors.append({"index": i, "error": "starfsmenn must be > 0"})
+                    continue
+
+                avg_salary = int(launakostnadur / starfsmenn)
+                laun_hlutfall_tekna = (
+                    launakostnadur / tekjur if tekjur and tekjur > 0 else None
+                )
+
+                cursor.execute(
+                    """INSERT INTO annual_reports
+                        (company_id, year, launakostnadur, starfsmenn, tekjur, avg_salary,
+                         source_pdf, extracted_at, hagnadur, rekstrarkostnadur,
+                         eiginfjarhlufall, laun_hlutfall_tekna, source_type, confidence)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (company_id, year) DO UPDATE SET
+                        launakostnadur = excluded.launakostnadur,
+                        starfsmenn = excluded.starfsmenn,
+                        tekjur = excluded.tekjur,
+                        avg_salary = excluded.avg_salary,
+                        source_pdf = excluded.source_pdf,
+                        extracted_at = excluded.extracted_at,
+                        hagnadur = excluded.hagnadur,
+                        rekstrarkostnadur = excluded.rekstrarkostnadur,
+                        eiginfjarhlufall = excluded.eiginfjarhlufall,
+                        laun_hlutfall_tekna = excluded.laun_hlutfall_tekna,
+                        source_type = excluded.source_type,
+                        confidence = excluded.confidence
+                    """,
+                    (
+                        company_id, year, launakostnadur, starfsmenn, tekjur,
+                        avg_salary, source_pdf, datetime.now(), hagnadur,
+                        rekstrarkostnadur, eiginfjarhlufall, laun_hlutfall_tekna,
+                        source_type, confidence,
+                    ),
+                )
+                created += 1
+            except KeyError as e:
+                errors.append({"index": i, "error": f"Missing required field: {e}"})
+            except Exception as e:
+                errors.append({"index": i, "error": str(e)})
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {"created": created, "errors": errors}
+
+
+def bulk_delete_reports(ids: list[int]) -> dict:
+    """Delete multiple annual reports by ID in a single transaction.
+
+    Returns {"deleted": count, "errors": [{"index": i, "error": msg}, ...]}.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    deleted = 0
+    errors = []
+
+    try:
+        for i, report_id in enumerate(ids):
+            try:
+                cursor.execute(
+                    "SELECT id FROM annual_reports WHERE id = ?", (report_id,)
+                )
+                if not cursor.fetchone():
+                    errors.append({"index": i, "id": report_id, "error": f"Report {report_id} not found"})
+                    continue
+
+                cursor.execute(
+                    "DELETE FROM annual_reports WHERE id = ?", (report_id,)
+                )
+                deleted += 1
+            except Exception as e:
+                errors.append({"index": i, "id": report_id, "error": str(e)})
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {"deleted": deleted, "errors": errors}
+
+
 def flag_sample_data() -> int:
     """Mark all annual_reports where source_pdf='sample_data' with is_sample=1. Returns count."""
     conn = get_connection()
