@@ -11,13 +11,15 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from . import config
 from . import database
 from . import hagstofa
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    version="0.1.0",
+    debug=config.DEBUG,
 )
 
 # Set up templates
@@ -339,6 +341,17 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+@app.get("/api/config")
+async def api_config():
+    """Return non-sensitive configuration values."""
+    return {
+        "database_url": config.DATABASE_URL,
+        "debug": config.DEBUG,
+        "cors_origins": config.CORS_ORIGINS,
+        "log_level": config.LOG_LEVEL,
+    }
 
 
 # Health check endpoint

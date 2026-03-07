@@ -6,17 +6,19 @@ from datetime import datetime
 from typing import Optional
 from dataclasses import dataclass
 
-# Handle Vercel's read-only filesystem
-# On Vercel, we copy the bundled database to /tmp for read access
-BUNDLED_DB = Path(__file__).parent.parent / "launatrausti.db"
+from . import config
+
+# Resolve database path from config, with Vercel override
+_configured_db = Path(config.DATABASE_URL)
+if not _configured_db.is_absolute():
+    _configured_db = Path(__file__).parent.parent / _configured_db
 
 if os.environ.get("VERCEL"):
     DB_PATH = Path("/tmp/launatrausti.db")
-    # Copy bundled database to /tmp if it doesn't exist
-    if not DB_PATH.exists() and BUNDLED_DB.exists():
-        shutil.copy(BUNDLED_DB, DB_PATH)
+    if not DB_PATH.exists() and _configured_db.exists():
+        shutil.copy(_configured_db, DB_PATH)
 else:
-    DB_PATH = BUNDLED_DB
+    DB_PATH = _configured_db
 
 
 def _column_exists(cursor, table, column):
