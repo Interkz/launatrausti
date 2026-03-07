@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 import src.database as db
 
@@ -121,12 +121,21 @@ def test_delete_sample_data(test_db):
         db.flag_sample_data()
         reports_del, companies_del = db.delete_sample_data()
         assert reports_del == 1
-        assert companies_del == 1  # All Fake should be orphaned and deleted
+        assert companies_del == 1  # All Fake should be soft-deleted (orphaned)
+
+        # Soft-deleted company invisible to normal queries
+        detail = db.get_company_detail(sample_cid)
+        assert detail is None
 
         # Verify Real Deal still exists
         detail = db.get_company_detail(real_cid)
         assert detail is not None
         assert len(detail["reports"]) == 1
+
+        # Soft-deleted items appear in trash
+        trash = db.get_trash()
+        assert len(trash["companies"]) == 1
+        assert len(trash["reports"]) == 1
 
 
 def test_get_platform_stats(test_db, sample_reports, sample_vr_surveys):
@@ -135,3 +144,103 @@ def test_get_platform_stats(test_db, sample_reports, sample_vr_surveys):
         assert stats["total_companies"] >= 1
         assert stats["total_reports"] >= 3
         assert stats["total_vr_surveys"] == 5
+
+
+def test_soft_delete_company(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("6666666666", "Doomed Corp", "62.01")
+        db.save_annual_report(cid, 2023, 50_000_000, 5.0, "test.pdf")
+
+        assert db.soft_delete("company", cid) is True
+        # Invisible to normal queries
+        assert db.get_company_detail(cid) is None
+        # Shows up in trash
+        trash = db.get_trash()
+        assert any(c["id"] == cid for c in trash["companies"])
+
+
+def test_soft_delete_and_restore(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("7777777777", "Resurrected Corp")
+        db.save_annual_report(cid, 2023, 60_000_000, 6.0, "test.pdf")
+
+        db.soft_delete("company", cid)
+        assert db.get_company_detail(cid) is None
+
+        assert db.restore("company", cid) is True
+        detail = db.get_company_detail(cid)
+        assert detail is not None
+        assert detail["company"]["name"] == "Resurrected Corp"
+
+
+def test_soft_delete_report(test_db, sample_company):
+    with patch.object(db, "DB_PATH", test_db):
+        rid = db.save_annual_report(sample_company, 2024, 90_000_000, 8.0, "test.pdf")
+        assert db.soft_delete("report", rid) is True
+
+        trash = db.get_trash()
+        assert any(r["id"] == rid for r in trash["reports"])
+
+        # Restore it
+        assert db.restore("report", rid) is True
+        detail = db.get_company_detail(sample_company)
+        assert any(r["id"] == rid for r in detail["reports"])
+
+
+def test_soft_delete_survey(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        survey = db.VRSalarySurvey(
+            id=None, survey_date="2026-01", starfsheiti="Prufari",
+            starfsstett="Taekni", medaltal=800000, midgildi=780000,
+            p25=700000, p75=900000, fjoldi_svara=30,
+            source_pdf="test.pdf", extracted_at=datetime.now(),
+        )
+        sid = db.save_vr_survey(survey)
+        assert db.soft_delete("survey", sid) is True
+
+        surveys = db.get_vr_surveys()
+        assert not any(s["id"] == sid for s in surveys)
+
+        trash = db.get_trash()
+        assert any(s["id"] == sid for s in trash["surveys"])
+
+
+def test_soft_delete_invalid_type(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        with pytest.raises(ValueError):
+            db.soft_delete("invalid", 1)
+
+
+def test_purge_old_deleted(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("8888888888", "Old Deleted Corp")
+
+        # Soft-delete and backdate to 31 days ago
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        old_date = (datetime.now() - timedelta(days=31)).isoformat()
+        cursor.execute(
+            "UPDATE companies SET deleted_at = ? WHERE id = ?", (old_date, cid)
+        )
+        conn.commit()
+        conn.close()
+
+        counts = db.purge_old_deleted(days=30)
+        assert counts["company"] == 1
+
+        # Should not appear in trash anymore
+        trash = db.get_trash()
+        assert not any(c["id"] == cid for c in trash["companies"])
+
+
+def test_purge_keeps_recent_deleted(test_db):
+    with patch.object(db, "DB_PATH", test_db):
+        cid = db.get_or_create_company("9999888877", "Recently Deleted Corp")
+        db.soft_delete("company", cid)
+
+        counts = db.purge_old_deleted(days=30)
+        assert counts["company"] == 0
+
+        # Still in trash
+        trash = db.get_trash()
+        assert any(c["id"] == cid for c in trash["companies"])
