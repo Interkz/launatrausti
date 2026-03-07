@@ -10,15 +10,33 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database
 from . import hagstofa
+from .api import api_router, compat_router
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+
+class APIVersionHeaderMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["X-API-Version"] = "1"
+        return response
+
+
+app.add_middleware(APIVersionHeaderMiddleware)
+
+# Versioned API: /api/v1/...
+app.include_router(api_router, prefix="/api")
+# Backward-compatible aliases: /api/...
+app.include_router(compat_router, prefix="/api")
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
@@ -253,92 +271,6 @@ async def launaleynd_page(request: Request):
             "vr_date": vr_date,
         }
     )
-
-
-@app.get("/api/companies")
-async def api_companies(year: Optional[int] = None, limit: int = 100):
-    """JSON API endpoint for company rankings."""
-    companies = database.get_ranked_companies(year=year, limit=limit)
-    return {"companies": companies, "year": year}
-
-
-@app.get("/api/company/{company_id}")
-async def api_company(company_id: int):
-    """JSON API endpoint for company detail."""
-    data = database.get_company_detail(company_id)
-    if not data:
-        raise HTTPException(status_code=404, detail="Company not found")
-    return data
-
-
-@app.get("/api/benchmarks")
-async def api_benchmarks(year: int = 2023):
-    """JSON API endpoint for industry wage benchmarks from Hagstofa."""
-    benchmarks = hagstofa.get_all_benchmarks(year)
-    national_avg = hagstofa.get_national_average(year)
-
-    return {
-        "year": year,
-        "national_average": {
-            "monthly": national_avg.monthly_wage if national_avg else None,
-            "annual": national_avg.annual_wage if national_avg else None,
-        } if national_avg else None,
-        "industries": [
-            {
-                "code": b.industry_code,
-                "name": b.industry_name,
-                "name_en": hagstofa.INDUSTRY_NAMES_EN.get(b.industry_code, b.industry_code),
-                "monthly_wage": b.monthly_wage,
-                "annual_wage": b.annual_wage,
-            }
-            for b in benchmarks
-        ],
-        "source": "Hagstofa Íslands (Statistics Iceland)",
-    }
-
-
-@app.get("/api/salaries")
-async def api_salaries(
-    category: Optional[str] = None,
-    survey_date: Optional[str] = None,
-):
-    """JSON API endpoint for VR salary survey data."""
-    surveys = database.get_vr_surveys(category=category, survey_date=survey_date)
-    categories = database.get_vr_categories()
-
-    conn = database.get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
-    )
-    dates = [row["survey_date"] for row in cursor.fetchall()]
-    conn.close()
-
-    return {"surveys": surveys, "categories": categories, "dates": dates}
-
-
-@app.get("/api/company/{company_id}/financials")
-async def api_company_financials(company_id: int):
-    """JSON API endpoint for company financials."""
-    financials = database.get_company_financials(company_id)
-    if not financials or not financials.get("company"):
-        raise HTTPException(status_code=404, detail="Company not found")
-    return financials
-
-
-@app.get("/api/company/{company_id}/salary-comparison")
-async def api_salary_comparison(company_id: int):
-    """JSON API endpoint for company salary comparison with VR survey data."""
-    comparison = database.get_salary_comparison(company_id)
-    if not comparison:
-        raise HTTPException(status_code=404, detail="Company not found")
-    return comparison
-
-
-@app.get("/api/stats")
-async def api_stats():
-    """JSON API endpoint for platform statistics."""
-    return database.get_platform_stats()
 
 
 # Health check endpoint
