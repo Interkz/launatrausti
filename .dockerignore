@@ -1,0 +1,44 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist/
+build/
+
+# Environment and secrets
+.env
+api.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test and dev files
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation and research
+data-sources/
+*.md
+idea.txt
+skatturinn.txt
+
+# Docker files (no need to copy into image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Database (created at runtime)
+*.db
+
+# Claude config
+.claude/
