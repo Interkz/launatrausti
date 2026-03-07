@@ -13,12 +13,15 @@ from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .cache import CacheMiddleware, cache
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
     version="0.1.0"
 )
+
+app.add_middleware(CacheMiddleware, cache_instance=cache)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
@@ -339,6 +342,13 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+@app.post("/api/admin/cache/clear")
+async def clear_cache():
+    """Invalidate all cached responses."""
+    cleared = cache.clear()
+    return {"cleared": cleared}
 
 
 # Health check endpoint
