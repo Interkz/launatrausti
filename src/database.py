@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import os
 import shutil
@@ -169,6 +170,16 @@ def init_db():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS webhooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT NOT NULL,
+            events TEXT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS data_flags (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             table_name TEXT NOT NULL,
@@ -194,6 +205,8 @@ def init_db():
 
 def get_or_create_company(kennitala: str, name: str, isat_code: Optional[str] = None) -> int:
     """Get existing company or create new one. Returns company ID."""
+    from .webhooks import fire_event
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -207,15 +220,19 @@ def get_or_create_company(kennitala: str, name: str, isat_code: Optional[str] = 
             "UPDATE companies SET name = ?, isat_code = COALESCE(?, isat_code) WHERE id = ?",
             (name, isat_code, company_id)
         )
+        conn.commit()
+        conn.close()
+        fire_event("company.updated", {"id": company_id, "kennitala": kennitala, "name": name})
     else:
         cursor.execute(
             "INSERT INTO companies (kennitala, name, isat_code) VALUES (?, ?, ?)",
             (kennitala, name, isat_code)
         )
         company_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        fire_event("company.created", {"id": company_id, "kennitala": kennitala, "name": name})
 
-    conn.commit()
-    conn.close()
     return company_id
 
 
@@ -233,11 +250,20 @@ def save_annual_report(
     confidence: float = 1.0
 ) -> int:
     """Save or update annual report. Returns report ID."""
+    from .webhooks import fire_event
+
     conn = get_connection()
     cursor = conn.cursor()
 
     avg_salary = int(launakostnadur / starfsmenn) if starfsmenn > 0 else 0
     laun_hlutfall_tekna = launakostnadur / tekjur if tekjur and tekjur > 0 else None
+
+    # Check if this is an update or create
+    cursor.execute(
+        "SELECT id FROM annual_reports WHERE company_id = ? AND year = ?",
+        (company_id, year),
+    )
+    existing = cursor.fetchone()
 
     cursor.execute("""
         INSERT INTO annual_reports
@@ -265,6 +291,15 @@ def save_annual_report(
     report_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    event_type = "report.updated" if existing else "report.created"
+    fire_event(event_type, {
+        "id": report_id,
+        "company_id": company_id,
+        "year": year,
+        "avg_salary": avg_salary,
+    })
+
     return report_id
 
 
@@ -641,6 +676,8 @@ def flag_sample_data() -> int:
 def delete_sample_data() -> tuple[int, int]:
     """Delete reports where is_sample=1, then delete companies with no remaining reports.
     Returns (reports_deleted, companies_deleted)."""
+    from .webhooks import fire_event
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -657,7 +694,80 @@ def delete_sample_data() -> tuple[int, int]:
 
     conn.commit()
     conn.close()
+
+    if reports_deleted > 0 or companies_deleted > 0:
+        fire_event("report.deleted", {
+            "reports_deleted": reports_deleted,
+            "companies_deleted": companies_deleted,
+            "type": "sample_data_cleanup",
+        })
+
     return (reports_deleted, companies_deleted)
+
+
+def create_webhook(url: str, events: list[str]) -> dict:
+    """Register a new webhook. events is a list of event type strings."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO webhooks (url, events) VALUES (?, ?)",
+        (url, json.dumps(events)),
+    )
+    webhook_id = cursor.lastrowid
+    conn.commit()
+
+    cursor.execute("SELECT * FROM webhooks WHERE id = ?", (webhook_id,))
+    row = cursor.fetchone()
+    conn.close()
+    result = dict(row)
+    result["events"] = json.loads(result["events"])
+    return result
+
+
+def list_webhooks(active_only: bool = False) -> list[dict]:
+    """List all registered webhooks."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if active_only:
+        cursor.execute("SELECT * FROM webhooks WHERE active = 1 ORDER BY created_at DESC")
+    else:
+        cursor.execute("SELECT * FROM webhooks ORDER BY created_at DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        d = dict(row)
+        d["events"] = json.loads(d["events"])
+        results.append(d)
+    return results
+
+
+def get_webhooks_for_event(event_type: str) -> list[dict]:
+    """Get all active webhooks that subscribe to a given event type."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM webhooks WHERE active = 1")
+    rows = cursor.fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        d = dict(row)
+        events = json.loads(d["events"])
+        if event_type in events or "*" in events:
+            d["events"] = events
+            results.append(d)
+    return results
+
+
+def delete_webhook(webhook_id: int) -> bool:
+    """Delete a webhook by ID. Returns True if deleted."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM webhooks WHERE id = ?", (webhook_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
 
 
 # Initialize database on import

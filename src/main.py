@@ -10,9 +10,11 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, HttpUrl
 
 from . import database
 from . import hagstofa
+from .webhooks import fire_event
 
 app = FastAPI(
     title="Launatrausti",
@@ -339,6 +341,37 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+# --- Admin Webhook Endpoints ---
+
+class WebhookCreate(BaseModel):
+    url: HttpUrl
+    events: list[str]
+
+
+@app.post("/api/admin/webhooks", status_code=201)
+async def create_webhook(body: WebhookCreate):
+    """Register a new webhook URL with event types."""
+    webhook = database.create_webhook(str(body.url), body.events)
+    fire_event("webhook.created", {"webhook_id": webhook["id"], "url": str(body.url)})
+    return webhook
+
+
+@app.get("/api/admin/webhooks")
+async def list_webhooks(active: Optional[bool] = None):
+    """List all registered webhooks."""
+    return {"webhooks": database.list_webhooks(active_only=bool(active))}
+
+
+@app.delete("/api/admin/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: int):
+    """Delete a webhook by ID."""
+    deleted = database.delete_webhook(webhook_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    fire_event("webhook.deleted", {"webhook_id": webhook_id})
+    return {"deleted": True}
 
 
 # Health check endpoint
