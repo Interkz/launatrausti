@@ -4,6 +4,7 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -14,10 +15,19 @@ from fastapi.templating import Jinja2Templates
 from . import database
 from . import hagstofa
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: purge soft-deleted items older than 30 days
+    database.purge_old_deleted(days=30)
+    yield
+
+
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Set up templates
@@ -144,7 +154,7 @@ async def salaries_page(
     conn = database.get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+        "SELECT DISTINCT survey_date FROM vr_salary_surveys WHERE deleted_at IS NULL ORDER BY survey_date DESC"
     )
     dates = [row["survey_date"] for row in cursor.fetchall()]
     conn.close()
@@ -192,6 +202,7 @@ async def launaleynd_page(request: Request):
     cursor.execute("""
         SELECT survey_date, AVG(medaltal) as vr_avg
         FROM vr_salary_surveys
+        WHERE deleted_at IS NULL
         GROUP BY survey_date
         ORDER BY survey_date DESC
         LIMIT 1
@@ -212,9 +223,11 @@ async def launaleynd_page(request: Request):
             JOIN annual_reports ar ON c.id = ar.company_id
             WHERE ar.year = (
                 SELECT MAX(ar2.year) FROM annual_reports ar2
-                WHERE ar2.company_id = c.id
+                WHERE ar2.company_id = c.id AND ar2.deleted_at IS NULL
             )
             AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
+            AND c.deleted_at IS NULL
+            AND ar.deleted_at IS NULL
             ORDER BY ar.avg_salary ASC
         """)
 
@@ -309,7 +322,7 @@ async def api_salaries(
     conn = database.get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT DISTINCT survey_date FROM vr_salary_surveys ORDER BY survey_date DESC"
+        "SELECT DISTINCT survey_date FROM vr_salary_surveys WHERE deleted_at IS NULL ORDER BY survey_date DESC"
     )
     dates = [row["survey_date"] for row in cursor.fetchall()]
     conn.close()
@@ -339,6 +352,41 @@ async def api_salary_comparison(company_id: int):
 async def api_stats():
     """JSON API endpoint for platform statistics."""
     return database.get_platform_stats()
+
+
+# ---------------------------------------------------------------------------
+# Admin endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.delete("/api/admin/{resource_type}/{resource_id}")
+async def admin_soft_delete(resource_type: str, resource_id: int):
+    """Soft-delete a resource (company, report, or survey)."""
+    try:
+        updated = database.soft_delete(resource_type, resource_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found or already deleted")
+    return {"status": "deleted", "type": resource_type, "id": resource_id}
+
+
+@app.get("/api/admin/trash")
+async def admin_trash():
+    """List all soft-deleted items."""
+    return database.get_trash()
+
+
+@app.post("/api/admin/restore/{resource_type}/{resource_id}")
+async def admin_restore(resource_type: str, resource_id: int):
+    """Restore a soft-deleted item."""
+    try:
+        updated = database.restore(resource_type, resource_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found or not deleted")
+    return {"status": "restored", "type": resource_type, "id": resource_id}
 
 
 # Health check endpoint

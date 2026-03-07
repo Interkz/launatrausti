@@ -158,3 +158,55 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Admin API tests (soft delete, trash, restore)
+# ---------------------------------------------------------------------------
+
+
+def test_admin_trash_empty(client):
+    """GET /api/admin/trash returns empty lists when nothing is deleted."""
+    response = client.get("/api/admin/trash")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["companies"] == []
+    assert data["reports"] == []
+    assert data["surveys"] == []
+
+
+def test_admin_soft_delete_and_restore_company(client, sample_company):
+    """DELETE then POST restore round-trips a company through trash."""
+    # Soft-delete
+    response = client.delete(f"/api/admin/company/{sample_company}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "deleted"
+
+    # Appears in trash
+    trash = client.get("/api/admin/trash").json()
+    assert any(c["id"] == sample_company for c in trash["companies"])
+
+    # Invisible to normal detail endpoint
+    response = client.get(f"/api/company/{sample_company}")
+    assert response.status_code == 404
+
+    # Restore
+    response = client.post(f"/api/admin/restore/company/{sample_company}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "restored"
+
+    # Visible again
+    response = client.get(f"/api/company/{sample_company}")
+    assert response.status_code == 200
+
+
+def test_admin_delete_invalid_type(client):
+    """DELETE with invalid resource type returns 400."""
+    response = client.delete("/api/admin/invalid/1")
+    assert response.status_code == 400
+
+
+def test_admin_delete_nonexistent(client):
+    """DELETE on non-existent ID returns 404."""
+    response = client.delete("/api/admin/company/99999")
+    assert response.status_code == 404

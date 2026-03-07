@@ -179,6 +179,11 @@ def init_db():
         )
     """)
 
+    # --- Soft delete columns ---
+    for table in ["companies", "annual_reports", "vr_salary_surveys"]:
+        if not _column_exists(cursor, table, "deleted_at"):
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at DATETIME")
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
@@ -187,6 +192,9 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_date ON vr_salary_surveys(survey_date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_stett ON vr_salary_surveys(starfsstett)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scrape_log_status ON scrape_log(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_companies_deleted ON companies(deleted_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_deleted ON annual_reports(deleted_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_deleted ON vr_salary_surveys(deleted_at)")
 
     conn.commit()
     conn.close()
@@ -197,7 +205,7 @@ def get_or_create_company(kennitala: str, name: str, isat_code: Optional[str] = 
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id FROM companies WHERE kennitala = ?", (kennitala,))
+    cursor.execute("SELECT id FROM companies WHERE kennitala = ? AND deleted_at IS NULL", (kennitala,))
     row = cursor.fetchone()
 
     if row:
@@ -301,6 +309,9 @@ def get_ranked_companies(
     if exclude_sample:
         where_clauses.append("(ar.is_sample = 0 OR ar.is_sample IS NULL)")
 
+    where_clauses.append("c.deleted_at IS NULL")
+    where_clauses.append("ar.deleted_at IS NULL")
+
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
     params.append(limit)
 
@@ -325,7 +336,7 @@ def get_company_detail(company_id: int):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+    cursor.execute("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL", (company_id,))
     company = cursor.fetchone()
 
     if not company:
@@ -334,7 +345,7 @@ def get_company_detail(company_id: int):
 
     cursor.execute("""
         SELECT * FROM annual_reports
-        WHERE company_id = ?
+        WHERE company_id = ? AND deleted_at IS NULL
         ORDER BY year DESC
     """, (company_id,))
     reports = cursor.fetchall()
@@ -351,7 +362,7 @@ def get_available_years():
     """Get list of years with data."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT year FROM annual_reports ORDER BY year DESC")
+    cursor.execute("SELECT DISTINCT year FROM annual_reports WHERE deleted_at IS NULL ORDER BY year DESC")
     years = [row["year"] for row in cursor.fetchall()]
     conn.close()
     return years
@@ -362,7 +373,7 @@ def get_company_financials(company_id: int) -> dict:
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+    cursor.execute("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL", (company_id,))
     company = cursor.fetchone()
     if not company:
         conn.close()
@@ -370,7 +381,7 @@ def get_company_financials(company_id: int) -> dict:
 
     cursor.execute("""
         SELECT * FROM annual_reports
-        WHERE company_id = ?
+        WHERE company_id = ? AND deleted_at IS NULL
         ORDER BY year ASC
     """, (company_id,))
     reports = cursor.fetchall()
@@ -409,7 +420,7 @@ def get_vr_surveys(
     conn = get_connection()
     cursor = conn.cursor()
 
-    where_clauses = []
+    where_clauses = ["deleted_at IS NULL"]
     params = []
 
     if category:
@@ -419,7 +430,7 @@ def get_vr_surveys(
         where_clauses.append("survey_date = ?")
         params.append(survey_date)
 
-    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+    where_sql = " AND ".join(where_clauses)
 
     cursor.execute(f"""
         SELECT * FROM vr_salary_surveys
@@ -438,7 +449,7 @@ def get_vr_categories() -> list[str]:
     cursor = conn.cursor()
     cursor.execute("""
         SELECT DISTINCT starfsstett FROM vr_salary_surveys
-        WHERE starfsstett IS NOT NULL
+        WHERE starfsstett IS NOT NULL AND deleted_at IS NULL
         ORDER BY starfsstett
     """)
     categories = [row["starfsstett"] for row in cursor.fetchall()]
@@ -454,7 +465,7 @@ def get_salary_comparison(company_id: int) -> dict:
     # Get the most recent annual report for this company
     cursor.execute("""
         SELECT ar.avg_salary, ar.year FROM annual_reports ar
-        WHERE ar.company_id = ?
+        WHERE ar.company_id = ? AND ar.deleted_at IS NULL
         ORDER BY ar.year DESC LIMIT 1
     """, (company_id,))
     report = cursor.fetchone()
@@ -470,6 +481,7 @@ def get_salary_comparison(company_id: int) -> dict:
         SELECT survey_date, AVG(medaltal) as vr_avg, MIN(medaltal) as vr_min,
                MAX(medaltal) as vr_max, COUNT(*) as survey_count
         FROM vr_salary_surveys
+        WHERE deleted_at IS NULL
         GROUP BY survey_date
         ORDER BY survey_date DESC
         LIMIT 1
@@ -505,13 +517,13 @@ def get_platform_stats() -> dict:
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) as cnt FROM companies")
+    cursor.execute("SELECT COUNT(*) as cnt FROM companies WHERE deleted_at IS NULL")
     total_companies = cursor.fetchone()["cnt"]
 
-    cursor.execute("SELECT COUNT(*) as cnt FROM annual_reports")
+    cursor.execute("SELECT COUNT(*) as cnt FROM annual_reports WHERE deleted_at IS NULL")
     total_reports = cursor.fetchone()["cnt"]
 
-    cursor.execute("SELECT COUNT(*) as cnt FROM vr_salary_surveys")
+    cursor.execute("SELECT COUNT(*) as cnt FROM vr_salary_surveys WHERE deleted_at IS NULL")
     total_vr_surveys = cursor.fetchone()["cnt"]
 
     cursor.execute("SELECT COUNT(*) as cnt FROM scrape_log")
@@ -520,10 +532,10 @@ def get_platform_stats() -> dict:
     cursor.execute("SELECT COUNT(DISTINCT source) as cnt FROM scrape_log")
     total_sources = cursor.fetchone()["cnt"]
 
-    cursor.execute("SELECT COUNT(DISTINCT source_pdf) as cnt FROM annual_reports")
+    cursor.execute("SELECT COUNT(DISTINCT source_pdf) as cnt FROM annual_reports WHERE deleted_at IS NULL")
     report_sources = cursor.fetchone()["cnt"]
 
-    cursor.execute("SELECT MIN(year) as min_y, MAX(year) as max_y FROM annual_reports")
+    cursor.execute("SELECT MIN(year) as min_y, MAX(year) as max_y FROM annual_reports WHERE deleted_at IS NULL")
     year_row = cursor.fetchone()
     year_range = (year_row["min_y"], year_row["max_y"]) if year_row["min_y"] else (None, None)
 
@@ -629,7 +641,7 @@ def flag_sample_data() -> int:
 
     cursor.execute("""
         UPDATE annual_reports SET is_sample = 1
-        WHERE source_pdf = 'sample_data'
+        WHERE source_pdf = 'sample_data' AND deleted_at IS NULL
     """)
 
     count = cursor.rowcount
@@ -639,25 +651,122 @@ def flag_sample_data() -> int:
 
 
 def delete_sample_data() -> tuple[int, int]:
-    """Delete reports where is_sample=1, then delete companies with no remaining reports.
+    """Soft-delete reports where is_sample=1, then soft-delete companies with no remaining active reports.
     Returns (reports_deleted, companies_deleted)."""
     conn = get_connection()
     cursor = conn.cursor()
+    now = datetime.now().isoformat()
 
-    # Delete sample reports
-    cursor.execute("DELETE FROM annual_reports WHERE is_sample = 1")
+    # Soft-delete sample reports
+    cursor.execute(
+        "UPDATE annual_reports SET deleted_at = ? WHERE is_sample = 1 AND deleted_at IS NULL",
+        (now,),
+    )
     reports_deleted = cursor.rowcount
 
-    # Delete orphaned companies (no remaining reports)
+    # Soft-delete orphaned companies (no remaining active reports)
     cursor.execute("""
-        DELETE FROM companies
-        WHERE id NOT IN (SELECT DISTINCT company_id FROM annual_reports)
-    """)
+        UPDATE companies SET deleted_at = ?
+        WHERE deleted_at IS NULL
+          AND id NOT IN (
+              SELECT DISTINCT company_id FROM annual_reports WHERE deleted_at IS NULL
+          )
+    """, (now,))
     companies_deleted = cursor.rowcount
 
     conn.commit()
     conn.close()
     return (reports_deleted, companies_deleted)
+
+
+SOFT_DELETE_TABLES = {
+    "company": "companies",
+    "report": "annual_reports",
+    "survey": "vr_salary_surveys",
+}
+
+
+def soft_delete(resource_type: str, resource_id: int) -> bool:
+    """Soft-delete a single record. Returns True if a row was updated."""
+    table = SOFT_DELETE_TABLES.get(resource_type)
+    if not table:
+        raise ValueError(f"Unknown resource type: {resource_type}")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    now = datetime.now().isoformat()
+    cursor.execute(
+        f"UPDATE {table} SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+        (now, resource_id),
+    )
+    updated = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def restore(resource_type: str, resource_id: int) -> bool:
+    """Restore a soft-deleted record. Returns True if a row was updated."""
+    table = SOFT_DELETE_TABLES.get(resource_type)
+    if not table:
+        raise ValueError(f"Unknown resource type: {resource_type}")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"UPDATE {table} SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+        (resource_id,),
+    )
+    updated = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def get_trash() -> dict:
+    """Return all soft-deleted items grouped by type."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, kennitala, name, deleted_at FROM companies WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+    )
+    companies = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute(
+        "SELECT id, company_id, year, avg_salary, deleted_at FROM annual_reports WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+    )
+    reports = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute(
+        "SELECT id, starfsheiti, survey_date, medaltal, deleted_at FROM vr_salary_surveys WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+    )
+    surveys = [dict(r) for r in cursor.fetchall()]
+
+    conn.close()
+    return {"companies": companies, "reports": reports, "surveys": surveys}
+
+
+def purge_old_deleted(days: int = 30) -> dict:
+    """Permanently delete items that were soft-deleted more than `days` ago.
+    Returns counts of purged rows per table."""
+    from datetime import timedelta
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    counts = {}
+
+    for resource_type, table in SOFT_DELETE_TABLES.items():
+        cursor.execute(
+            f"DELETE FROM {table} WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff,),
+        )
+        counts[resource_type] = cursor.rowcount
+
+    conn.commit()
+    conn.close()
+    return counts
 
 
 # Initialize database on import
