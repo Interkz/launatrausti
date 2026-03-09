@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from . import database
 from . import hagstofa
 from .startup import run_startup_checks, StartupError
+from .security import SecurityHeadersMiddleware
 
 logger = logging.getLogger("launatrausti")
 
@@ -38,6 +39,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Security headers on all responses
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Set up templates
 templates_dir = Path(__file__).parent / "templates"
