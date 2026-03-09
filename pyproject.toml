@@ -1,3 +1,13 @@
+[project]
+name = "launatrausti"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.109.0",
+    "jinja2==3.1.3",
+    "requests>=2.31.0",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
