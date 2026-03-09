@@ -4,6 +4,8 @@ Launatrausti - Icelandic Salary Transparency Platform
 FastAPI web application for viewing company salary rankings.
 """
 
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -13,11 +15,28 @@ from fastapi.templating import Jinja2Templates
 
 from . import database
 from . import hagstofa
+from .startup import run_startup_checks, StartupError
+
+logger = logging.getLogger("launatrausti")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run startup checks before the app begins serving requests."""
+    try:
+        results = run_startup_checks()
+        app.state.startup_results = results
+    except StartupError as e:
+        logger.error("Startup check failed: %s", e)
+        raise
+    yield
+
 
 app = FastAPI(
     title="Launatrausti",
     description="Icelandic Salary Transparency Platform",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Set up templates
@@ -344,4 +363,8 @@ async def api_stats():
 # Health check endpoint
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Basic health check — returns startup check results if available."""
+    result = {"status": "ok"}
+    if hasattr(app.state, "startup_results"):
+        result["startup"] = app.state.startup_results
+    return result
