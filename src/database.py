@@ -271,11 +271,12 @@ def save_annual_report(
 def get_ranked_companies(
     year: Optional[int] = None,
     limit: int = 100,
+    offset: int = 0,
     sector: Optional[str] = None,
     isat_prefix: Optional[str] = None,
     exclude_sample: bool = True
-):
-    """Get companies ranked by average salary."""
+) -> tuple[list[dict], int]:
+    """Get companies ranked by average salary. Returns (items, total_count)."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -302,8 +303,18 @@ def get_ranked_companies(
         where_clauses.append("(ar.is_sample = 0 OR ar.is_sample IS NULL)")
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
-    params.append(limit)
 
+    # Count total matching rows
+    cursor.execute(f"""
+        SELECT COUNT(*) as cnt
+        FROM companies c
+        JOIN annual_reports ar ON c.id = ar.company_id
+        WHERE {where_sql}
+    """, params)
+    total = cursor.fetchone()["cnt"]
+
+    # Fetch paginated results
+    page_params = params + [limit, offset]
     cursor.execute(f"""
         SELECT
             c.id, c.kennitala, c.name, c.isat_code,
@@ -312,12 +323,12 @@ def get_ranked_companies(
         JOIN annual_reports ar ON c.id = ar.company_id
         WHERE {where_sql}
         ORDER BY ar.avg_salary DESC
-        LIMIT ?
-    """, params)
+        LIMIT ? OFFSET ?
+    """, page_params)
 
     rows = cursor.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    return [dict(row) for row in rows], total
 
 
 def get_company_detail(company_id: int):
@@ -403,9 +414,11 @@ def get_company_financials(company_id: int) -> dict:
 
 def get_vr_surveys(
     category: Optional[str] = None,
-    survey_date: Optional[str] = None
-) -> list[dict]:
-    """Get VR salary survey data, optionally filtered by starfsstett or survey_date."""
+    survey_date: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: int = 0
+) -> tuple[list[dict], int]:
+    """Get VR salary survey data. Returns (items, total_count)."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -421,15 +434,29 @@ def get_vr_surveys(
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
+    # Count total matching rows
     cursor.execute(f"""
+        SELECT COUNT(*) as cnt FROM vr_salary_surveys
+        WHERE {where_sql}
+    """, params)
+    total = cursor.fetchone()["cnt"]
+
+    # Fetch results
+    query = f"""
         SELECT * FROM vr_salary_surveys
         WHERE {where_sql}
         ORDER BY survey_date DESC, medaltal DESC
-    """, params)
+    """
+    page_params = list(params)
+    if limit is not None:
+        query += " LIMIT ? OFFSET ?"
+        page_params += [limit, offset]
+
+    cursor.execute(query, page_params)
 
     rows = cursor.fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [dict(r) for r in rows], total
 
 
 def get_vr_categories() -> list[str]:

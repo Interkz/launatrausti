@@ -126,12 +126,16 @@ def test_api_stats_json(client):
 
 
 def test_api_salaries_json(client):
-    """GET /api/salaries returns JSON with surveys key."""
+    """GET /api/salaries returns paginated JSON with items key."""
     response = client.get("/api/salaries")
     assert response.status_code == 200
     data = response.json()
-    assert "surveys" in data
-    assert len(data["surveys"]) >= 1
+    assert "items" in data
+    assert "total" in data
+    assert "offset" in data
+    assert "limit" in data
+    assert "has_more" in data
+    assert len(data["items"]) >= 1
 
 
 def test_api_company_financials_json(client, sample_company):
