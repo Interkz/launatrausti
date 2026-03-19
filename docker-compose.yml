@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # API key for PDF extraction via Claude (set in .env or shell)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      # Persist SQLite database across container restarts
+      - ./launatrausti.db:/app/launatrausti.db
+      # Mount PDFs directory for annual report processing
+      - ./pdfs:/app/pdfs
+    restart: unless-stopped
