@@ -660,5 +660,31 @@ def delete_sample_data() -> tuple[int, int]:
     return (reports_deleted, companies_deleted)
 
 
+def backup_database(max_backups: int = 5) -> str:
+    """Create a timestamped SQLite backup using the online backup API.
+    Keeps only the last `max_backups` files and deletes older ones.
+    Returns the backup filename.
+    """
+    backups_dir = Path(__file__).parent.parent / "backups"
+    backups_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    filename = f"backup_{timestamp}.db"
+    backup_path = backups_dir / filename
+
+    src = sqlite3.connect(DB_PATH)
+    dst = sqlite3.connect(backup_path)
+    src.backup(dst)
+    dst.close()
+    src.close()
+
+    # Cleanup: keep only the most recent backups
+    existing = sorted(backups_dir.glob("backup_*.db"), key=lambda p: p.stat().st_mtime)
+    for old in existing[:-max_backups]:
+        old.unlink()
+
+    return filename
+
+
 # Initialize database on import
 init_db()

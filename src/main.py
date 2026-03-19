@@ -364,6 +364,13 @@ async def api_stats():
     return database.get_platform_stats()
 
 
+@app.get("/api/admin/backup")
+async def admin_backup():
+    """Create a SQLite database backup and return the filename."""
+    filename = database.backup_database()
+    return {"status": "ok", "backup": filename}
+
+
 # Health check endpoint
 @app.get("/health")
 async def health():
