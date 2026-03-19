@@ -1,3 +1,4 @@
+import re
 import sqlite3
 import os
 import shutil
@@ -658,6 +659,71 @@ def delete_sample_data() -> tuple[int, int]:
     conn.commit()
     conn.close()
     return (reports_deleted, companies_deleted)
+
+
+def _highlight(text: str, query: str) -> str:
+    """Wrap all case-insensitive occurrences of query in <mark> tags."""
+    if not text or not query:
+        return text or ""
+    return re.sub(
+        re.escape(query),
+        lambda m: f"<mark>{m.group(0)}</mark>",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+
+def search(query: str, limit: int = 20) -> dict:
+    """Search across companies and VR salary surveys. Returns results grouped by type."""
+    if not query or not query.strip():
+        return {"companies": [], "vr_surveys": []}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    like = f"%{query}%"
+
+    # Search companies by name and kennitala
+    cursor.execute("""
+        SELECT c.id, c.kennitala, c.name, c.isat_code, c.sector,
+               ar.avg_salary, ar.year
+        FROM companies c
+        LEFT JOIN annual_reports ar ON c.id = ar.company_id
+            AND ar.year = (SELECT MAX(ar2.year) FROM annual_reports ar2 WHERE ar2.company_id = c.id)
+        WHERE c.name LIKE ? OR c.kennitala LIKE ?
+        ORDER BY ar.avg_salary DESC
+        LIMIT ?
+    """, (like, like, limit))
+
+    companies = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        r["matched_field"] = "kennitala" if query.lower() in (r["kennitala"] or "").lower() else "name"
+        r["highlighted_name"] = _highlight(r["name"], query)
+        r["highlighted_kennitala"] = _highlight(r["kennitala"], query)
+        companies.append(r)
+
+    # Search VR salary surveys by starfsheiti and starfsstett
+    cursor.execute("""
+        SELECT id, survey_date, starfsheiti, starfsstett, medaltal, midgildi
+        FROM vr_salary_surveys
+        WHERE starfsheiti LIKE ? OR starfsstett LIKE ?
+        ORDER BY medaltal DESC
+        LIMIT ?
+    """, (like, like, limit))
+
+    vr_surveys = []
+    for row in cursor.fetchall():
+        r = dict(row)
+        r["matched_field"] = "starfsstett" if (r["starfsstett"] and query.lower() in r["starfsstett"].lower()) else "starfsheiti"
+        r["highlighted_starfsheiti"] = _highlight(r["starfsheiti"], query)
+        r["highlighted_starfsstett"] = _highlight(r.get("starfsstett"), query)
+        vr_surveys.append(r)
+
+    conn.close()
+    return {
+        "companies": companies,
+        "vr_surveys": vr_surveys,
+    }
 
 
 # Initialize database on import
