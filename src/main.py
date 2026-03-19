@@ -364,6 +364,21 @@ async def api_stats():
     return database.get_platform_stats()
 
 
+@app.get("/api/admin/audit-log")
+async def api_audit_log(
+    limit: int = 50,
+    offset: int = 0,
+    resource_type: Optional[str] = None,
+    action: Optional[str] = None,
+):
+    """Admin endpoint: paginated audit log of all data mutations."""
+    entries = database.get_audit_log(
+        limit=limit, offset=offset, resource_type=resource_type, action=action,
+    )
+    total = database.get_audit_log_count(resource_type=resource_type, action=action)
+    return {"entries": entries, "total": total, "limit": limit, "offset": offset}
+
+
 # Health check endpoint
 @app.get("/health")
 async def health():
