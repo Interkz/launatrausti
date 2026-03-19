@@ -159,7 +159,7 @@ def init_db():
             source TEXT NOT NULL,
             identifier TEXT NOT NULL,
             year INTEGER,
-            status TEXT NOT NULL CHECK(status IN ('pending', 'downloaded', 'extracted', 'failed')),
+            status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'downloaded', 'extracted', 'success', 'not_found', 'already_exists', 'failed')),
             pdf_path TEXT,
             error_message TEXT,
             created_at DATETIME NOT NULL,
