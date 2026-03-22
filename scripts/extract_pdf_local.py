@@ -58,8 +58,7 @@ def extract_financials(pdf_path: Path) -> dict:
             all_text += text + "\n"
 
     # --- Launakostnaður / Laun og launatengd gjöld ---
-    # Look for the total line, typically "Samtals <number> <number>"
-    # after a "Laun og launatengd gjöld" heading
+    # Strategy 1: Regex on full text
     patterns_laun = [
         # "Samtals 15.145 13.832" (total wages section)
         r"(?:Samtals|Alls)\s+([\d.]+)\s+([\d.]+)\s*\n.*?(?:Me[ðd]altal|[Áá]rsverk)",
@@ -69,6 +68,8 @@ def extract_financials(pdf_path: Path) -> dict:
         r"Launakostna[ðd]ur\s+([\d.]+)\s+([\d.]+)",
         # Launagreiðslur line
         r"Launagrei[ðd]slur\s+([\d.]+)\s+([\d.]+)",
+        # Dotted-line format: "Laun og tengd gjöld ............... 13.934 12.760"
+        r"Laun og tengd gj[öo]ld\s*\.+([\d.]+)\s+([\d.]+)",
     ]
 
     for pattern in patterns_laun:
@@ -76,13 +77,43 @@ def extract_financials(pdf_path: Path) -> dict:
         if match:
             val = parse_icelandic_number(match.group(1))
             if val and val > 100:  # Sanity: wage costs should be > 100M
-                result["launakostnadur"] = val * 1_000_000  # Convert from millions
+                result["launakostnadur"] = val * 1_000_000
                 result["notes"].append(f"Launakostnaður matched: {match.group(0)[:80]}")
+                break
+
+    # Strategy 2: Word-level extraction for dotted-line PDFs
+    if not result["launakostnadur"]:
+        for page in pdf.pages:
+            words = page.extract_words()
+            for i, w in enumerate(words):
+                wtext = w["text"].lower()
+                if ("laun og tengd" in wtext or
+                    (wtext == "laun" and i + 2 < len(words) and
+                     words[i+1]["text"] == "og" and "tengd" in words[i+2]["text"])):
+                    # Find numbers on the same line (similar y coordinate)
+                    y = w["top"]
+                    line_nums = []
+                    for w2 in words:
+                        if abs(w2["top"] - y) < 5 and re.match(r"[\d.]+$", w2["text"]) and len(w2["text"]) > 2:
+                            line_nums.append(w2["text"])
+                    if not line_nums:
+                        # Check next line (numbers might be on the row below the heading)
+                        for w2 in words:
+                            if 10 < w2["top"] - y < 20 and re.match(r"[\d.]+$", w2["text"]) and len(w2["text"]) > 2:
+                                line_nums.append(w2["text"])
+                    if line_nums:
+                        val = parse_icelandic_number(line_nums[0])
+                        if val and val > 100:
+                            result["launakostnadur"] = val * 1_000_000
+                            result["notes"].append(f"Launakostnaður (word-level): {line_nums[0]} from line with 'Laun og tengd'")
+                            break
+            if result["launakostnadur"]:
                 break
 
     # --- Starfsmenn / Ársverka ---
     patterns_staff = [
         r"Me[ðd]altal [áa]rsverka[^0-9]*([\d.]+)\s",
+        r"Me[ðd]alfj[öo]ldi st[öo][ðd]ugilda[^0-9]*([\d.]+)",
         r"Me[ðd]alfj[öo]ldi starfsmanna[^0-9]*([\d.]+)\s",
         r"[Áá]rsverk [íi] [áa]rslok[^0-9]*([\d.]+)\s",
         r"Starfsmenn[^0-9]*([\d.]+)\s",
@@ -93,7 +124,7 @@ def extract_financials(pdf_path: Path) -> dict:
         match = re.search(pattern, all_text)
         if match:
             val = parse_icelandic_number(match.group(1))
-            if val and 5 < val < 50000:  # Sanity: 5-50K employees
+            if val and 5 < val < 50000:
                 result["starfsmenn"] = val
                 result["notes"].append(f"Starfsmenn matched: {match.group(0)[:80]}")
                 break
