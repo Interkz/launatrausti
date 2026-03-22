@@ -283,9 +283,11 @@ async def samanburdur_page(
     request: Request,
     q: Optional[str] = None,
     isco: Optional[str] = None,
+    group: Optional[str] = None,
+    sort: str = "median",
     year: int = 2024,
 ):
-    """Salary comparison page — search your job title, see where you stand."""
+    """Salary comparison page — aurbjörg-style leaderboard sorted by salary."""
     selected = None
     time_series = []
     search_results = []
@@ -296,9 +298,10 @@ async def samanburdur_page(
             selected = next((r for r in time_series if r["year"] == year), time_series[0])
 
     if q:
-        search_results = database.search_occupations(q, year=year, limit=20)
+        search_results = database.search_occupations(q, year=year, limit=50)
 
-    categories = database.get_occupation_categories()
+    # Always load grouped data for the leaderboard view
+    grouped = database.get_all_occupations_grouped(year=year, sort_by=sort)
     available_years = database.get_occupation_years()
 
     return templates.TemplateResponse(
@@ -307,11 +310,15 @@ async def samanburdur_page(
             "request": request,
             "q": q or "",
             "isco": isco,
+            "group": group,
+            "sort": sort,
             "year": year,
             "selected": selected,
             "time_series": time_series,
             "search_results": search_results,
-            "categories": categories,
+            "grouped": grouped,
+            "isco_groups": database.ISCO_MAJOR_GROUPS,
+            "isco_groups_en": database.ISCO_MAJOR_GROUPS_EN,
             "available_years": available_years,
         }
     )

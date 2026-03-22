@@ -680,6 +680,62 @@ def delete_sample_data() -> tuple[int, int]:
     return (reports_deleted, companies_deleted)
 
 
+ISCO_MAJOR_GROUPS = {
+    "1": "Stjórnendur",
+    "2": "Sérfræðistörf",
+    "3": "Tæknar og sérmenntað starfsfólk",
+    "4": "Skrifstofustörf",
+    "5": "Þjónustu-, umönnunar- og sölustörf",
+    "7": "Iðnaðarmenn og sérhæft iðnverkafólk",
+    "8": "Véla- og vélgæslufólk",
+    "9": "Ósérhæfð störf",
+}
+
+ISCO_MAJOR_GROUPS_EN = {
+    "1": "Managers",
+    "2": "Professionals",
+    "3": "Technicians & Associate Professionals",
+    "4": "Clerical Support",
+    "5": "Service & Sales",
+    "7": "Craft & Trade",
+    "8": "Machine Operators",
+    "9": "Elementary Occupations",
+}
+
+
+def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median") -> dict:
+    """Get all occupations for a year, grouped by ISCO major category, sorted by sort_by."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    order_col = sort_by if sort_by in ("mean", "median", "p75", "p25") else "median"
+
+    cursor.execute(f"""
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+        FROM hagstofa_occupations
+        WHERE year = ? AND {order_col} IS NOT NULL
+        ORDER BY {order_col} DESC
+    """, (year,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    groups = {}
+    for row in rows:
+        r = dict(row)
+        code = r["isco_code"].strip()
+        first_char = code[0] if code else "?"
+        # Map non-ISCO codes to "other"
+        if first_char not in ISCO_MAJOR_GROUPS:
+            first_char = "other"
+
+        if first_char not in groups:
+            groups[first_char] = []
+        groups[first_char].append(r)
+
+    return groups
+
+
 def search_occupations(query: str = "", year: int = 2024, limit: int = 20) -> list[dict]:
     """Search occupations by name. Returns matching occupations with salary stats."""
     conn = get_connection()
