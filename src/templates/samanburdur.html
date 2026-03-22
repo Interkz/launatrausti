@@ -13,15 +13,21 @@
 <div class="stats">
     <div class="stat-card">
         <div class="label">P25</div>
-        <div class="value">{% if selected.p25 %}{{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div class="value" style="{% if selected.p25 and national_median %}color: {% if selected.p25 >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.p25 %}{{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
     </div>
     <div class="stat-card">
         <div class="label">Median</div>
-        <div class="value">{% if selected.median %}{{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div class="value" style="{% if selected.median and national_median %}color: {% if selected.median >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.median %}{{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        {% if selected.median and national_median %}
+        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;">
+            {% set diff = ((selected.median - national_median) / national_median * 100) %}
+            <span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}" style="font-size: 0.7rem;">{{ "{:.0f}".format(diff) }}%</span> vs avg
+        </div>
+        {% endif %}
     </div>
     <div class="stat-card">
         <div class="label">Mean</div>
-        <div class="value">{% if selected.mean %}{{ "{:,.0f}".format(selected.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div class="value" style="{% if selected.mean and national_median %}color: {% if selected.mean >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.mean %}{{ "{:,.0f}".format(selected.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
     </div>
 </div>
 
@@ -63,7 +69,7 @@
                     <td class="salary">{% if row.median %}{{ "{:,.0f}".format(row.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
                     <td class="salary">{% if row.p25 %}{{ "{:,.0f}".format(row.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
                     <td class="salary">{% if row.p75 %}{{ "{:,.0f}".format(row.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                    <td>{% if not loop.last %}{% set prev = time_series[loop.index] %}{% if row.mean and prev.mean and prev.mean > 0 %}{% set change = ((row.mean - prev.mean) / prev.mean * 100) %}<span class="benchmark-diff {% if change >= 0 %}positive{% else %}negative{% endif %}">{% if change >= 0 %}+{% endif %}{{ "{:.1f}".format(change) }}%</span>{% endif %}{% endif %}</td>
+                    <td>{% if not loop.last %}{% set prev = time_series[loop.index] %}{% if row.mean and prev.mean and prev.mean > 0 %}{% set change = ((row.mean - prev.mean) / prev.mean * 100) %}<span class="benchmark-diff {% if change >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.1f}".format(change) }}%</span>{% endif %}{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
