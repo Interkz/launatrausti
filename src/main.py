@@ -304,6 +304,14 @@ async def samanburdur_page(
     grouped = database.get_all_occupations_grouped(year=year, sort_by=sort)
     available_years = database.get_occupation_years()
 
+    # Calculate national average for color coding
+    all_medians = []
+    for grp_list in grouped.values():
+        for occ in grp_list:
+            if occ.get("median"):
+                all_medians.append(occ["median"])
+    national_median = sum(all_medians) // len(all_medians) if all_medians else 0
+
     return templates.TemplateResponse(
         "samanburdur.html",
         {
@@ -320,6 +328,7 @@ async def samanburdur_page(
             "isco_groups": database.ISCO_MAJOR_GROUPS,
             "isco_groups_en": database.ISCO_MAJOR_GROUPS_EN,
             "available_years": available_years,
+            "national_median": national_median,
         }
     )
 

@@ -169,14 +169,14 @@
         </div>
     </div>
     <table>
-        <thead><tr><th style="width: 40px;">#</th><th>Occupation</th><th>{{ sort|capitalize }}</th><th>{% if sort != "mean" %}Mean{% else %}Median{% endif %}</th><th>P25 &ndash; P75</th><th style="width: 60px;">N</th></tr></thead>
+        <thead><tr><th style="width: 40px;">#</th><th>Occupation</th><th>{{ sort|capitalize }}</th><th>vs Avg</th><th>P25 &ndash; P75</th><th style="width: 60px;">N</th></tr></thead>
         <tbody>
             {% for occ in occupations[:5] %}
             <tr>
                 <td class="rank">{{ loop.index }}</td>
                 <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">{{ occ.occupation_name }}</a></td>
-                <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                <td class="salary">{% if sort != "mean" %}{% if occ.mean %}{{ "{:,.0f}".format(occ.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% else %}{% if occ.median %}{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% endif %}</td>
+                <td class="salary" style="font-weight: 600; {% if occ[sort] and national_median %}color: {% if occ[sort] >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
                 <td class="salary" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
                 <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ occ.observation_count or "" }}</td>
             </tr>
@@ -195,7 +195,7 @@
                     <td class="rank" style="width: 40px;">{{ loop.index + 5 }}</td>
                     <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">{{ occ.occupation_name }}</a></td>
                     <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                    <td class="salary">{% if sort != "mean" %}{% if occ.mean %}{{ "{:,.0f}".format(occ.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% else %}{% if occ.median %}{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% endif %}</td>
+                    <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
                     <td class="salary" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
                     <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); width: 60px;">{{ occ.observation_count or "" }}</td>
                 </tr>
@@ -217,8 +217,8 @@
             <tr>
                 <td class="rank" style="width: 40px;">{{ loop.index }}</td>
                 <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none;">{{ occ.occupation_name }}</a></td>
-                <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                <td class="salary">{% if sort != "mean" %}{% if occ.mean %}{{ "{:,.0f}".format(occ.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% else %}{% if occ.median %}{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}{% endif %}</td>
+                <td class="salary" style="font-weight: 600; {% if occ[sort] and national_median %}color: {% if occ[sort] >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>
