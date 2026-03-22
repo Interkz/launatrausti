@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Samanburður - Launatrausti{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="font-family: var(--font-display); font-size: 2rem; color: var(--lumon-green); margin-bottom: 0.5rem;">Samanburður</h1>
+    <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.15em;">Occupation Salary Comparison &mdash; Hagstofa &Iacute;slands Data</p>
+</div>
+
+<!-- Search -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2>Search Occupation</h2>
+        <div class="year-filter">
+            {% for y in available_years %}
+            <a href="/samanburdur?q={{ q }}&year={{ y }}{% if isco %}&isco={{ isco }}{% endif %}" {% if year == y %}class="active"{% endif %}>{{ y }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    <div style="padding: 1.5rem;">
+        <form method="get" action="/samanburdur" style="display: flex; gap: 0.75rem;">
+            <input type="hidden" name="year" value="{{ year }}">
+            {% if isco %}<input type="hidden" name="isco" value="{{ isco }}">{% endif %}
+            <input type="text" name="q" value="{{ q }}" placeholder="Search by job title... (e.g. forritari, kennsla, l&aelig;knir)"
+                style="flex: 1; padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.875rem;
+                       border: 1px solid var(--lumon-green); background: var(--lumon-white);
+                       color: var(--lumon-black); outline: none;">
+            <button type="submit"
+                style="padding: 0.75rem 2rem; font-family: var(--font-mono); font-size: 0.75rem;
+                       text-transform: uppercase; letter-spacing: 0.1em; background: var(--lumon-green);
+                       color: var(--lumon-white); border: none; cursor: pointer;">Search</button>
+        </form>
+    </div>
+</div>
+
+{% if selected %}
+<!-- Selected Occupation Detail -->
+<div class="stats">
+    <div class="stat-card">
+        <div class="label">P25</div>
+        <div class="value">{% if selected.p25 %}{{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Median</div>
+        <div class="value">{% if selected.median %}{{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Mean</div>
+        <div class="value">{% if selected.mean %}{{ "{:,.0f}".format(selected.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2>{{ selected.occupation_name }}</h2>
+        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+            ISCO {{ selected.isco_code }} &bull; {{ year }}
+            {% if selected.observation_count %}&bull; {{ "{:,.0f}".format(selected.observation_count).replace(",", ".") }} observations{% endif %}
+        </div>
+    </div>
+    <div style="padding: 1.5rem;">
+        <!-- Salary distribution bar -->
+        {% if selected.p25 and selected.p75 and selected.median %}
+        <div style="margin-bottom: 1.5rem;">
+            <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Salary Distribution (Monthly)</div>
+            {% set max_val = selected.p75 * 1.15 %}
+            <div style="position: relative; height: 40px; background: var(--lumon-paper); border: 1px solid var(--lumon-grid);">
+                <!-- P25-P75 range bar -->
+                <div style="position: absolute; top: 0; bottom: 0;
+                            left: {{ (selected.p25 / max_val * 100)|round(1) }}%;
+                            width: {{ ((selected.p75 - selected.p25) / max_val * 100)|round(1) }}%;
+                            background: var(--lumon-green); opacity: 0.3;"></div>
+                <!-- Median line -->
+                <div style="position: absolute; top: 0; bottom: 0;
+                            left: {{ (selected.median / max_val * 100)|round(1) }}%;
+                            width: 2px; background: var(--lumon-green);"></div>
+                <!-- Mean marker -->
+                {% if selected.mean %}
+                <div style="position: absolute; top: 50%; transform: translateY(-50%);
+                            left: {{ (selected.mean / max_val * 100)|round(1) }}%;
+                            width: 8px; height: 8px; background: var(--lumon-accent);
+                            border-radius: 50%;"></div>
+                {% endif %}
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary);">
+                <span>P25: {{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr</span>
+                <span>Median: {{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr</span>
+                <span>P75: {{ "{:,.0f}".format(selected.p75).replace(",", ".") }} kr</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Time series table -->
+        {% if time_series|length > 1 %}
+        <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Yearly Trend</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Mean</th>
+                    <th>Median</th>
+                    <th>P25</th>
+                    <th>P75</th>
+                    <th>Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in time_series %}
+                <tr {% if row.year == year %}style="background: rgba(26, 61, 46, 0.05);"{% endif %}>
+                    <td class="rank">{{ row.year }}</td>
+                    <td class="salary">{% if row.mean %}{{ "{:,.0f}".format(row.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td class="salary">{% if row.median %}{{ "{:,.0f}".format(row.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td class="salary">{% if row.p25 %}{{ "{:,.0f}".format(row.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td class="salary">{% if row.p75 %}{{ "{:,.0f}".format(row.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td>
+                        {% if not loop.last %}
+                        {% set prev = time_series[loop.index] %}
+                        {% if row.mean and prev.mean and prev.mean > 0 %}
+                        {% set change = ((row.mean - prev.mean) / prev.mean * 100) %}
+                        <span class="benchmark-diff {% if change >= 0 %}positive{% else %}negative{% endif %}">
+                            {% if change >= 0 %}+{% endif %}{{ "{:.1f}".format(change) }}%
+                        </span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if search_results %}
+<!-- Search Results -->
+<div class="card">
+    <div class="card-header">
+        <h2>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Top Occupations{% endif %}</h2>
+        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+            {{ search_results|length }} occupations &bull; {{ year }}
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 80px;">ISCO</th>
+                <th>Occupation</th>
+                <th>Mean</th>
+                <th>Median</th>
+                <th>P25 &ndash; P75</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for occ in search_results %}
+            <tr>
+                <td class="rank"><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}&q={{ q }}" style="color: var(--lumon-accent);">{{ occ.isco_code }}</a></td>
+                <td>
+                    <a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}&q={{ q }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">
+                        {{ occ.occupation_name }}
+                    </a>
+                </td>
+                <td class="salary">{% if occ.mean %}{{ "{:,.0f}".format(occ.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                <td class="salary">{% if occ.median %}{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                <td class="salary" style="font-size: 0.8rem;">
+                    {% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif q and not selected %}
+<div class="card" style="padding: 3rem; text-align: center;">
+    <p style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);">
+        No occupations found for &ldquo;{{ q }}&rdquo; in {{ year }}.
+    </p>
+</div>
+{% elif not q and not selected %}
+<!-- Browse by category -->
+<div class="card">
+    <div class="card-header">
+        <h2>Browse by Category</h2>
+    </div>
+    <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+        {% for cat in categories %}
+        <a href="/samanburdur?q=&year={{ year }}" style="display: block; padding: 1rem; border: 1px solid var(--lumon-grid); text-decoration: none; color: var(--lumon-green); transition: background 0.15s;">
+            <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.25rem;">Group {{ cat.major_group }}</div>
+            <div style="font-weight: 500;">{{ cat.occupation_count }} occupations</div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div style="margin-top: 1.5rem; padding: 1rem; background: var(--lumon-paper); border: 1px solid var(--lumon-grid);">
+    <p style="color: var(--lumon-text-secondary); font-family: var(--font-mono); font-size: 0.6875rem;">
+        <strong>Source:</strong> Hagstofa &Iacute;slands (Statistics Iceland) &mdash; Table VIN02001<br>
+        Average total wages (heildarlaunl) for full-time employees by ISCO occupation, all genders. Values in ISK per month.<br>
+        <a href="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__launogtekjur__1_laun__1_laun/VIN02001.px" target="_blank" style="color: var(--lumon-accent);">View source data</a>
+    </p>
+</div>
+{% endblock %}

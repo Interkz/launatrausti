@@ -179,6 +179,23 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS hagstofa_occupations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            isco_code TEXT NOT NULL,
+            occupation_name TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            mean INTEGER,
+            median INTEGER,
+            p25 INTEGER,
+            p75 INTEGER,
+            observation_count INTEGER,
+            source TEXT DEFAULT 'hagstofa_vin02001',
+            fetched_at DATETIME NOT NULL,
+            UNIQUE(isco_code, year)
+        )
+    """)
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
@@ -187,6 +204,9 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_date ON vr_salary_surveys(survey_date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_vr_surveys_stett ON vr_salary_surveys(starfsstett)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scrape_log_status ON scrape_log(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_name ON hagstofa_occupations(occupation_name)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_year ON hagstofa_occupations(year)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_code ON hagstofa_occupations(isco_code)")
 
     conn.commit()
     conn.close()
@@ -658,6 +678,113 @@ def delete_sample_data() -> tuple[int, int]:
     conn.commit()
     conn.close()
     return (reports_deleted, companies_deleted)
+
+
+def search_occupations(query: str = "", year: int = 2024, limit: int = 20) -> list[dict]:
+    """Search occupations by name. Returns matching occupations with salary stats."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if query:
+        cursor.execute("""
+            SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+            FROM hagstofa_occupations
+            WHERE occupation_name LIKE ? AND year = ?
+            ORDER BY mean DESC
+            LIMIT ?
+        """, (f"%{query}%", year, limit))
+    else:
+        cursor.execute("""
+            SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+            FROM hagstofa_occupations
+            WHERE year = ?
+            ORDER BY mean DESC
+            LIMIT ?
+        """, (year, limit))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_occupation_detail(isco_code: str) -> list[dict]:
+    """Get all years of data for a specific occupation."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+        FROM hagstofa_occupations
+        WHERE isco_code = ?
+        ORDER BY year DESC
+    """, (isco_code,))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_occupation_categories() -> list[dict]:
+    """Get distinct ISCO major groups (first digit) with counts."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            SUBSTR(isco_code, 1, 1) as major_group,
+            COUNT(DISTINCT isco_code) as occupation_count,
+            MIN(occupation_name) as example_name
+        FROM hagstofa_occupations
+        WHERE year = (SELECT MAX(year) FROM hagstofa_occupations)
+        GROUP BY SUBSTR(isco_code, 1, 1)
+        ORDER BY major_group
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_occupation_years() -> list[int]:
+    """Get available years for occupation data."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT year FROM hagstofa_occupations ORDER BY year DESC")
+    years = [row["year"] for row in cursor.fetchall()]
+    conn.close()
+    return years
+
+
+def save_hagstofa_occupation(
+    isco_code: str, occupation_name: str, year: int,
+    mean: int = None, median: int = None,
+    p25: int = None, p75: int = None,
+    observation_count: int = None
+) -> int:
+    """Save or update a Hagstofa occupation record."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO hagstofa_occupations
+            (isco_code, occupation_name, year, mean, median, p25, p75,
+             observation_count, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (isco_code, year) DO UPDATE SET
+            occupation_name = excluded.occupation_name,
+            mean = excluded.mean,
+            median = excluded.median,
+            p25 = excluded.p25,
+            p75 = excluded.p75,
+            observation_count = excluded.observation_count,
+            fetched_at = excluded.fetched_at
+    """, (isco_code, occupation_name, year, mean, median, p25, p75,
+          observation_count, datetime.now()))
+
+    record_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return record_id
 
 
 # Initialize database on import

@@ -278,6 +278,61 @@ async def launaleynd_page(request: Request):
     )
 
 
+@app.get("/samanburdur", response_class=HTMLResponse)
+async def samanburdur_page(
+    request: Request,
+    q: Optional[str] = None,
+    isco: Optional[str] = None,
+    year: int = 2024,
+):
+    """Salary comparison page — search your job title, see where you stand."""
+    selected = None
+    time_series = []
+    search_results = []
+
+    if isco:
+        time_series = database.get_occupation_detail(isco)
+        if time_series:
+            selected = next((r for r in time_series if r["year"] == year), time_series[0])
+
+    if q:
+        search_results = database.search_occupations(q, year=year, limit=20)
+
+    categories = database.get_occupation_categories()
+    available_years = database.get_occupation_years()
+
+    return templates.TemplateResponse(
+        "samanburdur.html",
+        {
+            "request": request,
+            "q": q or "",
+            "isco": isco,
+            "year": year,
+            "selected": selected,
+            "time_series": time_series,
+            "search_results": search_results,
+            "categories": categories,
+            "available_years": available_years,
+        }
+    )
+
+
+@app.get("/api/occupations")
+async def api_occupations(q: str = "", year: int = 2024, limit: int = 20):
+    """JSON API for occupation search — powers autocomplete."""
+    results = database.search_occupations(q, year=year, limit=limit)
+    return {"occupations": results, "query": q, "year": year}
+
+
+@app.get("/api/occupation/{isco_code}")
+async def api_occupation_detail(isco_code: str):
+    """JSON API for single occupation with all years."""
+    data = database.get_occupation_detail(isco_code)
+    if not data:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    return {"occupation": data}
+
+
 @app.get("/api/companies")
 async def api_companies(year: Optional[int] = None, limit: int = 100):
     """JSON API endpoint for company rankings."""
