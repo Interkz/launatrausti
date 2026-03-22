@@ -5,7 +5,7 @@
 {% block content %}
 {% if not has_real_data %}
 <div class="warning">
-    MVP / Proof of Concept — Data shown may be sample data for testing purposes.
+    Data may include sample entries for demonstration purposes.
 </div>
 {% endif %}
 
@@ -61,7 +61,7 @@
                 <td class="company-name">
                     <span class="source-dot {{ 'real' if company.get('source_pdf', 'sample_data') != 'sample_data' else 'sample' }}"></span><a href="/company/{{ company.id }}">{{ company.name }}</a>
                 </td>
-                <td class="salary">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr</td>
+                <td class="salary" style="font-weight: 600; {% if avg_monthly %}color: {% if company.avg_salary // 12 >= avg_monthly %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr</td>
                 <td class="salary-annual">{{ "{:,.0f}".format(company.avg_salary).replace(",", ".") }} kr</td>
                 <td class="employees" style="text-align: right;">{{ "{:,.0f}".format(company.starfsmenn).replace(",", ".") }}</td>
                 <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);">{{ company.year }}</td>

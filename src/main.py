@@ -66,6 +66,10 @@ async def index(
         if c.get("source_pdf")
     )
 
+    # Calculate average monthly salary for color coding
+    monthly_salaries = [c["avg_salary"] // 12 for c in companies if c.get("avg_salary")]
+    avg_monthly = sum(monthly_salaries) // len(monthly_salaries) if monthly_salaries else 0
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -75,6 +79,7 @@ async def index(
             "selected_year": year,
             "selected_sector": sector,
             "has_real_data": has_real_data,
+            "avg_monthly": avg_monthly,
         }
     )
 
