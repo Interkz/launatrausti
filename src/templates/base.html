@@ -28,6 +28,18 @@
             --lumon-text-secondary: #5a5a56;
             --lumon-accent: #8b4513;
 
+            /* Financial data colors */
+            --salary-high: #1a6b3c;
+            --salary-low: #b8463e;
+            --salary-neutral: #2c2c2a;
+            --gold: #c4841d;
+            --gold-light: #faf3e6;
+            --gold-border: #deb866;
+
+            /* Depth */
+            --shadow-card: 0 1px 4px rgba(0,0,0,0.07), 0 0 1px rgba(0,0,0,0.05);
+            --shadow-hover: 0 4px 16px rgba(0,0,0,0.10);
+
             /* Typography scale */
             --font-display: 'Playfair Display', Georgia, serif;
             --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -215,9 +227,15 @@
         /* Card — The Ledger */
         .card {
             background: var(--lumon-white);
-            border: 1px solid var(--lumon-green);
+            border: 1px solid rgba(26, 61, 46, 0.15);
+            box-shadow: var(--shadow-card);
             margin-bottom: 3rem;
             position: relative;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
         }
 
         .card::before {
@@ -284,8 +302,12 @@
             transition: background-color 0.1s ease;
         }
 
+        tbody tr:nth-child(even) {
+            background: rgba(240, 240, 236, 0.5);
+        }
+
         tr:hover {
-            background: var(--lumon-paper);
+            background: var(--lumon-paper) !important;
         }
 
         td {
@@ -335,10 +357,13 @@
         .salary {
             font-family: var(--font-mono);
             font-weight: 600;
-            font-size: 0.9375rem;
-            color: var(--lumon-green);
+            font-size: 1rem;
+            color: var(--salary-neutral);
             letter-spacing: -0.01em;
         }
+
+        .salary.above-avg { color: var(--salary-high); }
+        .salary.below-avg { color: var(--salary-low); }
 
         .salary-annual {
             font-family: var(--font-mono);
@@ -500,7 +525,7 @@
         }
 
         .benchmark-diff.positive {
-            color: var(--lumon-green);
+            color: var(--salary-high);
         }
 
         .benchmark-diff.positive::before {
@@ -508,8 +533,7 @@
         }
 
         .benchmark-diff.negative {
-            color: var(--lumon-accent);
-            font-style: italic;
+            color: var(--salary-low);
         }
 
         /* Warning Banner — Clinical Alert */
