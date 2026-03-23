@@ -57,18 +57,19 @@ def extract_financials(pdf_path: Path) -> dict:
         if text:
             all_text += text + "\n"
 
+    # --- Detect format: government PDFs use full ISK, private use millions ---
+    is_government = "rikis" in str(pdf_path).lower()
+
     # --- Launakostnaður / Laun og launatengd gjöld ---
-    # Strategy 1: Regex on full text
     patterns_laun = [
-        # "Samtals 15.145 13.832" (total wages section)
+        # Government: "Laun, launatengd gjöld og starfsmannakostnaður ........ 8 3.726.678.520 3.527.824.889"
+        r"Laun,?\s*launatengd gj[öo]ld og starfsmannakostna[ðd]ur\s*\.+\s*\d*\s*([\d.]+)\s+([\d.]+)",
+        # Private: "Samtals 15.145 13.832" (total wages section, millions)
         r"(?:Samtals|Alls)\s+([\d.]+)\s+([\d.]+)\s*\n.*?(?:Me[ðd]altal|[Áá]rsverk)",
-        # "12 Laun og launatengd gjöld (15.145) (13.832)" in income statement
+        # "12 Laun og launatengd gjöld (15.145) (13.832)"
         r"Laun og launatengd gj[öo]ld\s+\(?([\d.]+)\)?\s+\(?([\d.]+)\)?",
-        # Direct match
         r"Launakostna[ðd]ur\s+([\d.]+)\s+([\d.]+)",
-        # Launagreiðslur line
         r"Launagrei[ðd]slur\s+([\d.]+)\s+([\d.]+)",
-        # Dotted-line format: "Laun og tengd gjöld ............... 13.934 12.760"
         r"Laun og tengd gj[öo]ld\s*\.+([\d.]+)\s+([\d.]+)",
     ]
 
@@ -76,8 +77,11 @@ def extract_financials(pdf_path: Path) -> dict:
         match = re.search(pattern, all_text)
         if match:
             val = parse_icelandic_number(match.group(1))
-            if val and val > 100:  # Sanity: wage costs should be > 100M
-                result["launakostnadur"] = val * 1_000_000
+            if val and val > 100:
+                if is_government or val > 1_000_000:
+                    result["launakostnadur"] = val  # Already full ISK
+                else:
+                    result["launakostnadur"] = val * 1_000_000  # Convert from millions
                 result["notes"].append(f"Launakostnaður matched: {match.group(0)[:80]}")
                 break
 
@@ -104,7 +108,10 @@ def extract_financials(pdf_path: Path) -> dict:
                     if line_nums:
                         val = parse_icelandic_number(line_nums[0])
                         if val and val > 100:
-                            result["launakostnadur"] = val * 1_000_000
+                            if is_government or val > 1_000_000:
+                                result["launakostnadur"] = val
+                            else:
+                                result["launakostnadur"] = val * 1_000_000
                             result["notes"].append(f"Launakostnaður (word-level): {line_nums[0]} from line with 'Laun og tengd'")
                             break
             if result["launakostnadur"]:
@@ -112,18 +119,23 @@ def extract_financials(pdf_path: Path) -> dict:
 
     # --- Starfsmenn / Ársverka ---
     patterns_staff = [
-        r"Me[ðd]altal [áa]rsverka[^0-9]*([\d.]+)\s",
-        r"Me[ðd]alfj[öo]ldi st[öo][ðd]ugilda[^0-9]*([\d.]+)",
-        r"Me[ðd]alfj[öo]ldi starfsmanna[^0-9]*([\d.]+)\s",
-        r"[Áá]rsverk [íi] [áa]rslok[^0-9]*([\d.]+)\s",
-        r"Starfsmenn[^0-9]*([\d.]+)\s",
+        r"Me[ðd]altal [áa]rsverka[^0-9]*([\d.,]+)\s",
+        r"Me[ðd]alfj[öo]ldi st[öo][ðd]ugilda[^0-9]*([\d.,]+)",
+        r"Me[ðd]alfj[öo]ldi starfsmanna[^0-9]*([\d.,]+)",
+        r"[Áá]rsverk [íi] [áa]rslok[^0-9]*([\d.,]+)\s",
+        r"Starfsmenn[^0-9]*([\d.,]+)\s",
         r"(\d{2,5})\s+starfsmenn",
     ]
 
     for pattern in patterns_staff:
         match = re.search(pattern, all_text)
         if match:
-            val = parse_icelandic_number(match.group(1))
+            # Handle decimal FTE counts like "201,9" → 202
+            raw = match.group(1).replace(",", ".")
+            try:
+                val = round(float(raw.replace(".", "", raw.count(".") - 1))) if "." in raw and len(raw) < 8 else parse_icelandic_number(match.group(1))
+            except (ValueError, TypeError):
+                val = parse_icelandic_number(match.group(1))
             if val and 5 < val < 50000:
                 result["starfsmenn"] = val
                 result["notes"].append(f"Starfsmenn matched: {match.group(0)[:80]}")
@@ -142,7 +154,10 @@ def extract_financials(pdf_path: Path) -> dict:
         if match:
             val = parse_icelandic_number(match.group(1))
             if val and val > 10:
-                result["tekjur"] = val * 1_000_000
+                if is_government or val > 1_000_000:
+                    result["tekjur"] = val
+                else:
+                    result["tekjur"] = val * 1_000_000
                 result["notes"].append(f"Tekjur matched: {match.group(0)[:80]}")
                 break
 
@@ -157,7 +172,10 @@ def extract_financials(pdf_path: Path) -> dict:
         if match:
             val = parse_icelandic_number(match.group(1))
             if val:
-                result["hagnadur"] = val * 1_000_000
+                if is_government or val > 1_000_000:
+                    result["hagnadur"] = val
+                else:
+                    result["hagnadur"] = val * 1_000_000
                 result["notes"].append(f"Hagnaður matched: {match.group(0)[:80]}")
                 break
 
@@ -170,15 +188,24 @@ def extract_financials(pdf_path: Path) -> dict:
 
 
 def extract_metadata_from_filename(filename: str) -> dict:
-    """Extract kennitala and year from filename like '4710080280_2023.pdf'."""
+    """Extract kennitala/institution and year from filename."""
+    # Private: 4710080280_2023.pdf
     match = re.match(r"(\d{10})_(\d{4})", filename)
     if match:
         return {"kennitala": match.group(1), "year": int(match.group(2))}
 
-    # Try alternative format: 4710080280_Landsbankinn_hf._ars_2023.pdf
+    # Private alt: 4710080280_Landsbankinn_hf._ars_2023.pdf
     match = re.match(r"(\d{10})_.*?(\d{4})\.pdf", filename)
     if match:
         return {"kennitala": match.group(1), "year": int(match.group(2))}
+
+    # Government: 00201_alingi_2023.pdf (institution_id_name_year)
+    match = re.match(r"(\d{3,5})_(.+?)_(\d{4})\.pdf", filename)
+    if match:
+        inst_id = match.group(1)
+        name = match.group(2).replace("_", " ").title()
+        year = int(match.group(3))
+        return {"kennitala": f"R{inst_id}", "name": name, "year": year, "is_government": True}
 
     return {}
 
