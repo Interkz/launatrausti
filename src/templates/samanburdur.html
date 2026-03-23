@@ -1,33 +1,83 @@
 {% extends "base.html" %}
 
-{% block title %}Samanburður - Launatrausti{% endblock %}
+{% block title %}{% if selected %}{{ selected.occupation_name }} — {% endif %}Samanburður — Launatrausti{% endblock %}
+
+{% block og_meta %}
+<meta property="og:title" content="{% if selected %}{{ selected.occupation_name }} — {{ '{:,.0f}'.format(selected.median).replace(',', '.') }} kr/mán{% else %}Launasamanburður — Hvar stendur þú?{% endif %}">
+<meta property="og:description" content="Berðu launin þín saman við 269 starfsstéttir á Íslandi. Gögn frá Hagstofu Íslands, 2014–2024.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Launatrausti">
+<meta name="description" content="Launasamanburður — sjáðu hvernig launin þín bera saman við aðra. 269 starfsstéttir, gögn frá Hagstofu Íslands.">
+{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h1 style="font-family: var(--font-display); font-size: 2rem; color: var(--lumon-green); margin-bottom: 0.5rem;">Samanburður</h1>
-    <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.15em;">Occupation Salary Comparison &mdash; Hagstofa &Iacute;slands Data</p>
+<div style="margin-bottom: 1.5rem;">
+    <h1 style="font-family: var(--font-display); font-size: 2rem; color: var(--lumon-green); margin-bottom: 0.25rem;">Launasamanburður</h1>
+    <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">Berðu launin þín saman &mdash; 269 starfsstéttir &mdash; Hagstofa &Iacute;slands {{ year }}</p>
+</div>
+
+<!-- Salary Input — The Hook -->
+<div class="card" style="margin-bottom: 2rem; {% if salary_context %}border-color: {% if percentile >= 50 %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">
+    <div style="padding: 1.5rem;">
+        <form method="get" action="/samanburdur" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <label style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lumon-green); white-space: nowrap;">Mánaðarlaun þín:</label>
+            <input type="number" name="my_salary" value="{{ my_salary or '' }}" placeholder="t.d. 850.000"
+                style="flex: 1; min-width: 180px; padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;
+                       border: 2px solid var(--lumon-green); background: var(--lumon-white); color: var(--lumon-black); outline: none;"
+                step="1000" min="0">
+            <span style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);">kr</span>
+            <button type="submit"
+                style="padding: 0.75rem 2rem; font-family: var(--font-mono); font-size: 0.75rem;
+                       text-transform: uppercase; letter-spacing: 0.1em; background: var(--lumon-green);
+                       color: var(--lumon-white); border: none; cursor: pointer; white-space: nowrap;">Bera saman</button>
+        </form>
+
+        {% if salary_context %}
+        <div style="margin-top: 1.25rem; padding: 1.25rem; background: {% if percentile >= 50 %}rgba(26, 61, 46, 0.05){% else %}rgba(139, 69, 19, 0.05){% endif %}; border: 1px solid {% if percentile >= 50 %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};">
+            <div style="font-family: var(--font-display); font-size: 1.75rem; color: {% if percentile >= 50 %}var(--lumon-green){% else %}var(--lumon-accent){% endif %}; margin-bottom: 0.5rem;">
+                Þú ert yfir {{ percentile }}% starfsstétta
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--lumon-text-secondary); line-height: 1.6;">
+                Laun þín: <strong>{{ "{:,.0f}".format(my_salary).replace(",", ".") }} kr/mán</strong> &mdash;
+                hærri en miðgildi {{ salary_context.percentile }}% af {{ salary_context.total_occupations }} starfsstéttum.
+                {% if salary_context.above %}
+                <br>Næsta starfsstétt fyrir ofan: <strong>{{ salary_context.above.occupation_name }}</strong> ({{ "{:,.0f}".format(salary_context.above.median).replace(",", ".") }} kr)
+                {% endif %}
+                {% if salary_context.below %}
+                <br>Næsta starfsstétt fyrir neðan: <strong>{{ salary_context.below.occupation_name }}</strong> ({{ "{:,.0f}".format(salary_context.below.median).replace(",", ".") }} kr)
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 {% if selected %}
 <!-- Selected Occupation Detail -->
+<a href="/samanburdur?year={{ year }}&sort={{ sort }}" style="display: inline-block; margin-bottom: 1rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-accent); text-decoration: none;">&larr; Til baka</a>
+
 <div class="stats">
     <div class="stat-card">
-        <div class="label">P25</div>
+        <div class="label">Neðri fjórðungur</div>
         <div class="value" style="{% if selected.p25 and national_median %}color: {% if selected.p25 >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.p25 %}{{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;">25% þéna minna</div>
     </div>
     <div class="stat-card">
-        <div class="label">Median</div>
+        <div class="label">Miðgildi</div>
         <div class="value" style="{% if selected.median and national_median %}color: {% if selected.median >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.median %}{{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
         {% if selected.median and national_median %}
         <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;">
             {% set diff = ((selected.median - national_median) / national_median * 100) %}
-            <span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}" style="font-size: 0.7rem;">{{ "{:.0f}".format(diff) }}%</span> vs avg
+            <span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}" style="font-size: 0.7rem;">{{ "{:.0f}".format(diff) }}%</span> vs landsmeðaltal
         </div>
         {% endif %}
     </div>
     <div class="stat-card">
-        <div class="label">Mean</div>
-        <div class="value" style="{% if selected.mean and national_median %}color: {% if selected.mean >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.mean %}{{ "{:,.0f}".format(selected.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div class="label">Efri fjórðungur</div>
+        <div class="value" style="{% if selected.mean and national_median %}color: {% if selected.mean >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if selected.p75 %}{{ "{:,.0f}".format(selected.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</div>
+        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;">25% þéna meira</div>
     </div>
 </div>
 
@@ -36,132 +86,127 @@
         <h2>{{ selected.occupation_name }}</h2>
         <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
             ISCO {{ selected.isco_code }} &bull; {{ year }}
-            {% if selected.observation_count %}&bull; {{ "{:,.0f}".format(selected.observation_count).replace(",", ".") }} observations{% endif %}
+            {% if selected.observation_count %}&bull; {{ "{:,.0f}".format(selected.observation_count).replace(",", ".") }} mælingar{% endif %}
         </div>
     </div>
     <div style="padding: 1.5rem;">
         {% if selected.p25 and selected.p75 and selected.median %}
         <div style="margin-bottom: 1.5rem;">
-            <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Salary Distribution (Monthly)</div>
-            {% set max_val = selected.p75 * 1.15 %}
-            <div style="position: relative; height: 40px; background: var(--lumon-paper); border: 1px solid var(--lumon-grid);">
+            <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Launadreifing (mánaðarlaun)</div>
+            {% set max_val = selected.p75 * 1.2 %}
+            <div style="position: relative; height: 40px; background: var(--lumon-paper); border: 1px solid var(--lumon-grid); overflow: hidden;">
                 <div style="position: absolute; top: 0; bottom: 0; left: {{ (selected.p25 / max_val * 100)|round(1) }}%; width: {{ ((selected.p75 - selected.p25) / max_val * 100)|round(1) }}%; background: var(--lumon-green); opacity: 0.3;"></div>
                 <div style="position: absolute; top: 0; bottom: 0; left: {{ (selected.median / max_val * 100)|round(1) }}%; width: 2px; background: var(--lumon-green);"></div>
-                {% if selected.mean %}<div style="position: absolute; top: 50%; transform: translateY(-50%); left: {{ (selected.mean / max_val * 100)|round(1) }}%; width: 8px; height: 8px; background: var(--lumon-accent); border-radius: 50%;"></div>{% endif %}
+                {% if selected.mean %}<div style="position: absolute; top: 50%; transform: translateY(-50%); left: {{ [selected.mean / max_val * 100, 98]|min|round(1) }}%; width: 8px; height: 8px; background: var(--lumon-accent); border-radius: 50%;"></div>{% endif %}
+                {% if my_salary %}<div style="position: absolute; top: 0; bottom: 0; left: {{ [my_salary / max_val * 100, 99]|min|round(1) }}%; width: 3px; background: #e74c3c;" title="Þín laun: {{ '{:,.0f}'.format(my_salary).replace(',', '.') }} kr"></div>{% endif %}
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary);">
-                <span>P25: {{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr</span>
-                <span>Median: {{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr</span>
-                <span>P75: {{ "{:,.0f}".format(selected.p75).replace(",", ".") }} kr</span>
+                <span>{{ "{:,.0f}".format(selected.p25).replace(",", ".") }} kr</span>
+                <span>Miðgildi: {{ "{:,.0f}".format(selected.median).replace(",", ".") }} kr</span>
+                <span>{{ "{:,.0f}".format(selected.p75).replace(",", ".") }} kr</span>
             </div>
         </div>
         {% endif %}
 
         {% if time_series|length > 1 %}
-        <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Yearly Trend</div>
+        <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary); margin-bottom: 0.75rem;">Þróun yfir tíma</div>
+        <div style="overflow-x: auto;">
         <table>
-            <thead><tr><th>Year</th><th>Mean</th><th>Median</th><th>P25</th><th>P75</th><th>Change</th></tr></thead>
+            <thead><tr><th>Ár</th><th>Meðaltal</th><th>Miðgildi</th><th class="hide-mobile">P25</th><th class="hide-mobile">P75</th><th>Breyting</th></tr></thead>
             <tbody>
                 {% for row in time_series %}
                 <tr {% if row.year == year %}style="background: rgba(26, 61, 46, 0.05);"{% endif %}>
                     <td class="rank">{{ row.year }}</td>
                     <td class="salary">{% if row.mean %}{{ "{:,.0f}".format(row.mean).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
                     <td class="salary">{% if row.median %}{{ "{:,.0f}".format(row.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                    <td class="salary">{% if row.p25 %}{{ "{:,.0f}".format(row.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                    <td class="salary">{% if row.p75 %}{{ "{:,.0f}".format(row.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                    <td>{% if not loop.last %}{% set prev = time_series[loop.index] %}{% if row.mean and prev.mean and prev.mean > 0 %}{% set change = ((row.mean - prev.mean) / prev.mean * 100) %}<span class="benchmark-diff {% if change >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.1f}".format(change) }}%</span>{% endif %}{% endif %}</td>
+                    <td class="salary hide-mobile">{% if row.p25 %}{{ "{:,.0f}".format(row.p25).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td class="salary hide-mobile">{% if row.p75 %}{{ "{:,.0f}".format(row.p75).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td>{% if loop.index0 < time_series|length - 1 %}{% set prev = time_series[loop.index0 + 1] %}{% if row.mean and prev.mean and prev.mean > 0 %}{% set change = ((row.mean - prev.mean) / prev.mean * 100) %}<span class="benchmark-diff {% if change >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.1f}".format(change) }}%</span>{% endif %}{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% endif %}
     </div>
 </div>
-
-<a href="/samanburdur?year={{ year }}&sort={{ sort }}" style="display: inline-block; margin-bottom: 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-accent); text-decoration: none;">&larr; Back to all occupations</a>
 {% endif %}
 
 {% if not selected %}
-<!-- Controls: Search + Sort + Year + Category Filter -->
+<!-- Controls -->
 <div class="card" style="margin-bottom: 2rem;">
     <div style="padding: 1.25rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-        <!-- Search -->
-        <form method="get" action="/samanburdur" style="display: flex; gap: 0.5rem; flex: 1; min-width: 250px;">
+        <form method="get" action="/samanburdur" style="display: flex; gap: 0.5rem; flex: 1; min-width: 200px;">
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="sort" value="{{ sort }}">
             {% if group %}<input type="hidden" name="group" value="{{ group }}">{% endif %}
-            <input type="text" name="q" value="{{ q }}" placeholder="Search occupation..."
+            <input type="text" name="q" value="{{ q }}" placeholder="Leita að starfsstétt..."
                 style="flex: 1; padding: 0.5rem 0.75rem; font-family: var(--font-mono); font-size: 0.8rem;
                        border: 1px solid var(--lumon-green); background: var(--lumon-white); color: var(--lumon-black); outline: none;">
             <button type="submit" style="padding: 0.5rem 1.25rem; font-family: var(--font-mono); font-size: 0.7rem;
                        text-transform: uppercase; letter-spacing: 0.1em; background: var(--lumon-green);
-                       color: var(--lumon-white); border: none; cursor: pointer;">Search</button>
+                       color: var(--lumon-white); border: none; cursor: pointer;">Leita</button>
         </form>
-
-        <!-- Sort -->
-        <div style="display: flex; gap: 0; border: 1px solid var(--lumon-green);">
-            {% for s in ["median", "mean", "p75"] %}
+        <div style="display: flex; gap: 0; border: 1px solid var(--lumon-green); font-size: 0;">
+            {% for s, label in [("median", "Miðgildi"), ("mean", "Meðaltal"), ("p75", "P75")] %}
             <a href="/samanburdur?year={{ year }}&sort={{ s }}{% if group %}&group={{ group }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
                style="padding: 0.5rem 0.75rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase;
-                      letter-spacing: 0.1em; text-decoration: none; color: {% if sort == s %}var(--lumon-white){% else %}var(--lumon-green){% endif %};
+                      letter-spacing: 0.1em; text-decoration: none; display: inline-block;
+                      color: {% if sort == s %}var(--lumon-white){% else %}var(--lumon-green){% endif %};
                       background: {% if sort == s %}var(--lumon-green){% else %}transparent{% endif %};
-                      border-right: 1px solid var(--lumon-green);">{{ s }}</a>
+                      border-right: 1px solid var(--lumon-green);">{{ label }}</a>
             {% endfor %}
         </div>
     </div>
-
-    <!-- Year filter -->
-    <div style="padding: 0 1.25rem 1rem; display: flex; gap: 0; border-top: 1px solid var(--lumon-grid);">
-        <div style="padding-top: 0.75rem; display: flex; gap: 0; flex-wrap: wrap;">
-            {% for y in available_years %}
-            <a href="/samanburdur?year={{ y }}&sort={{ sort }}{% if group %}&group={{ group }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
-               style="padding: 0.375rem 0.625rem; font-family: var(--font-mono); font-size: 0.65rem; text-decoration: none;
-                      color: {% if year == y %}var(--lumon-white){% else %}var(--lumon-green){% endif %};
-                      background: {% if year == y %}var(--lumon-green){% else %}transparent{% endif %};
-                      border: 1px solid var(--lumon-green); margin-right: -1px;">{{ y }}</a>
-            {% endfor %}
-        </div>
+    <div style="padding: 0 1.25rem 0.75rem; display: flex; gap: 0; flex-wrap: wrap;">
+        {% for y in available_years %}
+        <a href="/samanburdur?year={{ y }}&sort={{ sort }}{% if group %}&group={{ group }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+           style="padding: 0.375rem 0.625rem; font-family: var(--font-mono); font-size: 0.65rem; text-decoration: none;
+                  color: {% if year == y %}var(--lumon-white){% else %}var(--lumon-green){% endif %};
+                  background: {% if year == y %}var(--lumon-green){% else %}transparent{% endif %};
+                  border: 1px solid var(--lumon-green); margin-right: -1px;">{{ y }}</a>
+        {% endfor %}
     </div>
-
-    <!-- Category filter pills -->
-    <div style="padding: 0 1.25rem 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <div style="padding: 0.5rem 1.25rem 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <a href="/samanburdur?year={{ year }}&sort={{ sort }}{% if q %}&q={{ q }}{% endif %}"
            style="padding: 0.375rem 0.75rem; font-family: var(--font-mono); font-size: 0.65rem; text-decoration: none;
                   border-radius: 2px; letter-spacing: 0.05em;
-                  {% if not group %}background: var(--lumon-green); color: var(--lumon-white);{% else %}background: var(--lumon-paper); color: var(--lumon-green); border: 1px solid var(--lumon-grid);{% endif %}">All</a>
+                  {% if not group %}background: var(--lumon-green); color: var(--lumon-white);{% else %}background: var(--lumon-paper); color: var(--lumon-green); border: 1px solid var(--lumon-grid);{% endif %}">Allt</a>
         {% for code, name in isco_groups.items()|sort %}
         <a href="/samanburdur?year={{ year }}&sort={{ sort }}&group={{ code }}{% if q %}&q={{ q }}{% endif %}"
            style="padding: 0.375rem 0.75rem; font-family: var(--font-mono); font-size: 0.65rem; text-decoration: none;
                   border-radius: 2px; letter-spacing: 0.05em;
-                  {% if group == code %}background: var(--lumon-green); color: var(--lumon-white);{% else %}background: var(--lumon-paper); color: var(--lumon-green); border: 1px solid var(--lumon-grid);{% endif %}">{{ isco_groups_en[code] }}</a>
+                  {% if group == code %}background: var(--lumon-green); color: var(--lumon-white);{% else %}background: var(--lumon-paper); color: var(--lumon-green); border: 1px solid var(--lumon-grid);{% endif %}">{{ name }}</a>
         {% endfor %}
     </div>
 </div>
 
 {% if search_results %}
-<!-- Search Results -->
+<!-- Search Results (hides leaderboard) -->
 <div class="card" style="margin-bottom: 2rem;">
     <div class="card-header">
-        <h2>Results for &ldquo;{{ q }}&rdquo;</h2>
-        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ search_results|length }} occupations &bull; {{ year }}</div>
+        <h2>Niðurstöður fyrir &ldquo;{{ q }}&rdquo;</h2>
+        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ search_results|length }} starfsstéttir &bull; {{ year }}</div>
     </div>
+    <div style="overflow-x: auto;">
     <table>
-        <thead><tr><th style="width: 40px;">#</th><th>Occupation</th><th>{{ sort|capitalize }}</th><th>P25 &ndash; P75</th><th style="width: 60px;">N</th></tr></thead>
+        <thead><tr><th style="width: 40px;">#</th><th>Starfsstétt</th><th>Miðgildi</th><th>vs Landsmðt.</th><th class="hide-mobile">Bil</th><th class="hide-mobile" style="width: 50px;">N</th></tr></thead>
         <tbody>
             {% for occ in search_results %}
             <tr>
                 <td class="rank">{{ loop.index }}</td>
                 <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">{{ occ.occupation_name }}</a></td>
-                <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                <td class="salary" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
-                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ occ.observation_count or "" }}</td>
+                <td class="salary" style="font-weight: 600; {% if occ.median and national_median %}color: {% if occ.median >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ.median %}{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                <td>{% if occ.median and national_median %}{% set diff = ((occ.median - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
+                <td class="salary hide-mobile" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }}&ndash;{{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
+                <td class="hide-mobile" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ occ.observation_count or "" }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
-{% endif %}
-
+{% else %}
 <!-- Grouped Occupation Leaderboard -->
 {% set group_order = ["1", "2", "3", "4", "5", "7", "8", "9"] %}
 {% for grp in group_order %}
@@ -169,13 +214,14 @@
 {% set occupations = grouped[grp] %}
 <div class="card" style="margin-bottom: 2rem;">
     <div class="card-header">
-        <h2>{{ isco_groups_en.get(grp, "Other") }}</h2>
+        <h2>{{ isco_groups.get(grp, "Annað") }}</h2>
         <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
-            {{ isco_groups.get(grp, "") }} &bull; {{ occupations|length }} occupations
+            {{ occupations|length }} starfsstéttir
         </div>
     </div>
+    <div style="overflow-x: auto;">
     <table>
-        <thead><tr><th style="width: 40px;">#</th><th>Occupation</th><th>{{ sort|capitalize }}</th><th>vs Avg</th><th>P25 &ndash; P75</th><th style="width: 60px;">N</th></tr></thead>
+        <thead><tr><th style="width: 40px;">#</th><th>Starfsstétt</th><th>Miðgildi</th><th>vs Landsmðt.</th><th class="hide-mobile">Bil</th><th class="hide-mobile" style="width: 50px;">N</th></tr></thead>
         <tbody>
             {% for occ in occupations[:5] %}
             <tr>
@@ -183,61 +229,64 @@
                 <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">{{ occ.occupation_name }}</a></td>
                 <td class="salary" style="font-weight: 600; {% if occ[sort] and national_median %}color: {% if occ[sort] >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
                 <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
-                <td class="salary" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
-                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ occ.observation_count or "" }}</td>
+                <td class="salary hide-mobile" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }}&ndash;{{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
+                <td class="hide-mobile" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ occ.observation_count or "" }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% if occupations|length > 5 %}
     <details style="border-top: 1px solid var(--lumon-grid);">
-        <summary style="padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-accent); cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em;">
-            Show {{ occupations|length - 5 }} more
+        <summary style="padding: 0.75rem 1.25rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-accent); cursor: pointer; letter-spacing: 0.05em;">
+            Sýna {{ occupations|length - 5 }} í viðbót
         </summary>
+        <div style="overflow-x: auto;">
         <table>
             <tbody>
                 {% for occ in occupations[5:] %}
                 <tr>
                     <td class="rank" style="width: 40px;">{{ loop.index + 5 }}</td>
                     <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none; font-weight: 500;">{{ occ.occupation_name }}</a></td>
-                    <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+                    <td class="salary" style="font-weight: 600; {% if occ[sort] and national_median %}color: {% if occ[sort] >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
                     <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
-                    <td class="salary" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }} &ndash; {{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
-                    <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); width: 60px;">{{ occ.observation_count or "" }}</td>
+                    <td class="salary hide-mobile" style="font-size: 0.8rem;">{% if occ.p25 and occ.p75 %}{{ "{:,.0f}".format(occ.p25).replace(",", ".") }}&ndash;{{ "{:,.0f}".format(occ.p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</td>
+                    <td class="hide-mobile" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); width: 50px;">{{ occ.observation_count or "" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </details>
     {% endif %}
 </div>
 {% endif %}
 {% endfor %}
 
-{% if "other" in grouped and (not group) %}
+{% if "other" in grouped and not group %}
 <div class="card" style="margin-bottom: 2rem;">
-    <div class="card-header"><h2>Other</h2></div>
-    <table>
-        <tbody>
-            {% for occ in grouped["other"] %}
-            <tr>
-                <td class="rank" style="width: 40px;">{{ loop.index }}</td>
-                <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none;">{{ occ.occupation_name }}</a></td>
-                <td class="salary" style="font-weight: 600; {% if occ[sort] and national_median %}color: {% if occ[sort] >= national_median %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
-                <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% else %}&mdash;{% endif %}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="card-header"><h2>Annað</h2></div>
+    <div style="overflow-x: auto;">
+    <table><tbody>
+        {% for occ in grouped["other"] %}
+        <tr>
+            <td class="rank" style="width: 40px;">{{ loop.index }}</td>
+            <td><a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}" style="color: var(--lumon-green); text-decoration: none;">{{ occ.occupation_name }}</a></td>
+            <td class="salary" style="font-weight: 600;">{% if occ[sort] %}{{ "{:,.0f}".format(occ[sort]).replace(",", ".") }} kr{% else %}&mdash;{% endif %}</td>
+            <td>{% if occ[sort] and national_median %}{% set diff = ((occ[sort] - national_median) / national_median * 100) %}<span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">{{ "{:.0f}".format(diff) }}%</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody></table>
+    </div>
 </div>
+{% endif %}
 {% endif %}
 {% endif %}
 
 <div style="margin-top: 1.5rem; padding: 1rem; background: var(--lumon-paper); border: 1px solid var(--lumon-grid);">
     <p style="color: var(--lumon-text-secondary); font-family: var(--font-mono); font-size: 0.6875rem;">
-        <strong>Source:</strong> Hagstofa &Iacute;slands (Statistics Iceland) &mdash; Table VIN02001<br>
-        Average total wages (heildarlaun) for full-time employees by ISCO occupation, all genders. Values in ISK per month.<br>
-        <a href="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__launogtekjur__1_laun__1_laun/VIN02001.px" target="_blank" style="color: var(--lumon-accent);">View source data</a>
+        <strong>Heimild:</strong> Hagstofa &Iacute;slands &mdash; tafla VIN02001. Heildarlaun fullvinnandi, öll kyn. Landsmiðgildi: 845.000 kr/mán (2024).<br>
+        <a href="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__launogtekjur__1_laun__1_laun/VIN02001.px" target="_blank" style="color: var(--lumon-accent);">Skoða grunnggögn</a>
     </p>
 </div>
 {% endblock %}

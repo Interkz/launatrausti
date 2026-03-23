@@ -291,6 +291,7 @@ async def samanburdur_page(
     group: Optional[str] = None,
     sort: str = "median",
     year: int = 2024,
+    my_salary: Optional[int] = None,
 ):
     """Salary comparison page — aurbjörg-style leaderboard sorted by salary."""
     selected = None
@@ -309,13 +310,38 @@ async def samanburdur_page(
     grouped = database.get_all_occupations_grouped(year=year, sort_by=sort)
     available_years = database.get_occupation_years()
 
-    # Calculate national average for color coding
-    all_medians = []
-    for grp_list in grouped.values():
-        for occ in grp_list:
-            if occ.get("median"):
-                all_medians.append(occ["median"])
-    national_median = sum(all_medians) // len(all_medians) if all_medians else 0
+    # National median: use Hagstofa published figure (845K for 2024 full-time)
+    # This is the actual national median, not a derived mean-of-medians
+    national_median = 845_000
+
+    # Salary percentile calculation
+    percentile = None
+    salary_context = None
+    if my_salary and my_salary > 0:
+        all_medians = []
+        for grp_list in grouped.values():
+            for occ in grp_list:
+                if occ.get("median"):
+                    all_medians.append(occ["median"])
+        if all_medians:
+            below = sum(1 for m in all_medians if m < my_salary)
+            percentile = round(below / len(all_medians) * 100)
+            # Find closest occupations
+            closest_above = None
+            closest_below = None
+            for grp_list in grouped.values():
+                for occ in grp_list:
+                    med = occ.get("median", 0)
+                    if med and med >= my_salary and (closest_above is None or med < closest_above["median"]):
+                        closest_above = occ
+                    if med and med < my_salary and (closest_below is None or med > closest_below["median"]):
+                        closest_below = occ
+            salary_context = {
+                "percentile": percentile,
+                "above": closest_above,
+                "below": closest_below,
+                "total_occupations": len(all_medians),
+            }
 
     return templates.TemplateResponse(
         "samanburdur.html",
@@ -326,6 +352,7 @@ async def samanburdur_page(
             "group": group,
             "sort": sort,
             "year": year,
+            "my_salary": my_salary,
             "selected": selected,
             "time_series": time_series,
             "search_results": search_results,
@@ -334,6 +361,8 @@ async def samanburdur_page(
             "isco_groups_en": database.ISCO_MAJOR_GROUPS_EN,
             "available_years": available_years,
             "national_median": national_median,
+            "percentile": percentile,
+            "salary_context": salary_context,
         }
     )
 

@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Launatrausti{% endblock %}</title>
+    {% block og_meta %}
+    <meta property="og:title" content="Launatrausti — Launasamanburður á Íslandi">
+    <meta property="og:description" content="Berðu launin þín saman við 269 starfsstéttir. Gögn frá Hagstofu Íslands.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Launatrausti">
+    <meta name="description" content="Launatrausti — Icelandic Salary Transparency. Compare salaries across 269 occupations.">
+    {% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
@@ -610,6 +617,19 @@
 
             .footer-meta {
                 text-align: left;
+            }
+
+            .hide-mobile {
+                display: none !important;
+            }
+
+            nav {
+                flex-wrap: wrap;
+            }
+
+            nav a {
+                font-size: 0.65rem;
+                padding: 0.5rem 0.75rem;
             }
         }
 
