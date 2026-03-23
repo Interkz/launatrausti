@@ -98,16 +98,21 @@ def extract_financials(pdf_path: Path) -> dict:
                     y = w["top"]
                     line_nums = []
                     for w2 in words:
-                        if abs(w2["top"] - y) < 5 and re.match(r"[\d.]+$", w2["text"]) and len(w2["text"]) > 2:
+                        if (abs(w2["top"] - y) < 5 and re.match(r"[\d.]+$", w2["text"])
+                                and len(w2["text"]) > 2
+                                and w2["text"] not in ("2020", "2021", "2022", "2023", "2024", "2025")
+                                and w2["x0"] > 350):  # Numbers should be in the right columns
                             line_nums.append(w2["text"])
                     if not line_nums:
-                        # Check next line (numbers might be on the row below the heading)
                         for w2 in words:
-                            if 10 < w2["top"] - y < 20 and re.match(r"[\d.]+$", w2["text"]) and len(w2["text"]) > 2:
+                            if (10 < w2["top"] - y < 20 and re.match(r"[\d.]+$", w2["text"])
+                                    and len(w2["text"]) > 2
+                                    and w2["text"] not in ("2020", "2021", "2022", "2023", "2024", "2025")
+                                    and w2["x0"] > 350):
                                 line_nums.append(w2["text"])
                     if line_nums:
                         val = parse_icelandic_number(line_nums[0])
-                        if val and val > 100:
+                        if val and val > 500:
                             if is_government or val > 1_000_000:
                                 result["launakostnadur"] = val
                             else:
