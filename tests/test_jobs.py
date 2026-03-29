@@ -295,3 +295,116 @@ def test_get_job_stats(test_db, sample_company):
         assert stats["extracted_jobs"] == 1
         assert stats["jobs_with_salary"] == 1
         assert set(stats["job_sources"]) == {"alfred", "starfatorg"}
+
+
+# ---------------------------------------------------------------------------
+# Scraper parse tests
+# ---------------------------------------------------------------------------
+
+
+def test_parse_alfred_job():
+    from scripts.scrape_jobs import parse_alfred_job
+
+    raw = {
+        "id": "abc-123",
+        "title": "Hugbunadarverkfraedingur",
+        "brand": {"name": "Acme ehf.", "slug": "acme-ehf"},
+        "location": {"name": "Reykjavik", "latitude": 64.15, "longitude": -21.94},
+        "employmentType": {"name": "Full-time"},
+        "description": "<p>Great job</p>",
+        "applicationDeadline": "2026-05-01T00:00:00",
+        "createdAt": "2026-03-15T10:00:00",
+        "jobCompensations": [],
+    }
+    listing = parse_alfred_job(raw)
+    assert listing.source == "alfred"
+    assert listing.source_id == "abc-123"
+    assert listing.title == "Hugbunadarverkfraedingur"
+    assert listing.employer_name == "Acme ehf."
+    assert listing.location == "Reykjavik"
+    assert listing.employment_type == "Full-time"
+    assert "alfred.is/starf/acme-ehf/abc-123" in listing.source_url
+    assert listing.deadline == "2026-05-01"
+    assert listing.posted_date == "2026-03-15"
+    assert listing.is_active is True
+
+
+def test_parse_alfred_job_missing_brand():
+    """Alfred jobs can have brand=None."""
+    from scripts.scrape_jobs import parse_alfred_job
+
+    raw = {
+        "id": "no-brand-456",
+        "title": "Mystery Job",
+        "brand": None,
+        "location": None,
+        "employmentType": None,
+        "description": "Some description",
+        "applicationDeadline": None,
+        "createdAt": None,
+        "jobCompensations": [],
+    }
+    listing = parse_alfred_job(raw)
+    assert listing.source == "alfred"
+    assert listing.source_id == "no-brand-456"
+    assert listing.employer_name == "Unknown"
+    assert listing.location is None
+    assert listing.employment_type is None
+    assert listing.deadline is None
+    assert listing.posted_date is None
+
+
+def test_parse_starfatorg_job():
+    from scripts.scrape_jobs import parse_starfatorg_job
+
+    raw = {
+        "id": "x-123",
+        "title": "Verkefnastjori",
+        "institutionName": "Fjarsysla rikisins",
+        "locations": ["Reykjavik"],
+        "applicationDeadlineFrom": "2026-03-01",
+        "applicationDeadlineTo": "2026-04-15",
+        "intro": "Intro text",
+        "salaryTerms": "Laun samkvaemi kjarasamningi",
+        "tasksAndResponsibilities": "Manage projects",
+        "qualificationRequirements": "University degree",
+    }
+    listing = parse_starfatorg_job(raw)
+    assert listing.source == "starfatorg"
+    assert listing.source_id == "x-123"
+    assert listing.title == "Verkefnastjori"
+    assert listing.employer_name == "Fjarsysla rikisins"
+    assert listing.location == "Reykjavik"
+    assert listing.salary_text == "Laun samkvaemi kjarasamningi"
+    assert "island.is/starfatorg/x-123" in listing.source_url
+    assert listing.deadline == "2026-04-15"
+    assert listing.posted_date == "2026-03-01"
+    assert "Intro text" in listing.description_raw
+    assert "Manage projects" in listing.description_raw
+    assert "University degree" in listing.description_raw
+    assert listing.is_active is True
+
+
+def test_parse_starfatorg_job_minimal():
+    """Starfatorg jobs with minimal fields should still parse."""
+    from scripts.scrape_jobs import parse_starfatorg_job
+
+    raw = {
+        "id": "min-1",
+        "title": "Starfsheiti",
+        "institutionName": "Stofnun",
+        "locations": [],
+        "applicationDeadlineFrom": None,
+        "applicationDeadlineTo": None,
+        "intro": None,
+        "salaryTerms": None,
+        "tasksAndResponsibilities": None,
+        "qualificationRequirements": None,
+    }
+    listing = parse_starfatorg_job(raw)
+    assert listing.source == "starfatorg"
+    assert listing.employer_name == "Stofnun"
+    assert listing.location is None
+    assert listing.salary_text is None
+    assert listing.description_raw is None
+    assert listing.deadline is None
