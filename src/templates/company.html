@@ -227,4 +227,36 @@
     </div>
 </div>
 {% endif %}
+
+{% if jobs %}
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Laus storf</h2>
+        <span class="source">{{ jobs|length }} storf</span>
+    </div>
+    {% for job in jobs %}
+    <div style="padding: 1rem 2rem; border-bottom: 1px solid var(--lumon-grid); {% if loop.index is odd %}background: var(--lumon-white);{% else %}background: rgba(240, 240, 236, 0.5);{% endif %}">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-family: var(--font-display); color: var(--lumon-green);">{{ job.title }}</span>
+                {% if job.employment_type %}
+                <span class="badge badge-private" style="margin-left: 0.5rem;">{{ job.employment_type }}</span>
+                {% endif %}
+                {% if job.location %}
+                <span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); margin-left: 0.5rem;">{{ job.location }}</span>
+                {% endif %}
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                {% if job.estimated_salary %}
+                <span class="salary" style="font-size: 0.875rem;">{{ "{:,.0f}".format(job.estimated_salary).replace(",", ".") }} kr</span>
+                {% endif %}
+                {% if job.source_url %}
+                <a href="{{ job.source_url }}" target="_blank" rel="noopener" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-green-muted); text-decoration: none;">Skoða &#8594;</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 {% endblock %}

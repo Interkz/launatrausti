@@ -110,9 +110,10 @@ async def company_detail(request: Request, company_id: int):
 
         national_avg = hagstofa.get_national_average(latest_year)
 
-    # Load financials and salary comparison
+    # Load financials, salary comparison, and open jobs
     financials = database.get_company_financials(company_id)
     salary_comparison = database.get_salary_comparison(company_id)
+    jobs = database.get_company_jobs(company_id)
 
     return templates.TemplateResponse(
         "company.html",
@@ -125,6 +126,7 @@ async def company_detail(request: Request, company_id: int):
             "industry_name": industry_name,
             "financials": financials,
             "salary_comparison": salary_comparison,
+            "jobs": jobs,
         }
     )
 
@@ -381,6 +383,75 @@ async def api_occupation_detail(isco_code: str):
     if not data:
         raise HTTPException(status_code=404, detail="Occupation not found")
     return {"occupation": data}
+
+
+@app.get("/jobs", response_class=HTMLResponse)
+async def jobs_page(
+    request: Request,
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    location: Optional[str] = None,
+    employment_type: Optional[str] = None,
+    remote_policy: Optional[str] = None,
+    source: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Job listings page with filtering."""
+    jobs = database.get_active_jobs(
+        salary_min=salary_min,
+        salary_max=salary_max,
+        location=location,
+        employment_type=employment_type,
+        remote_policy=remote_policy,
+        source=source,
+        limit=limit,
+        offset=offset,
+    )
+    stats = database.get_job_stats()
+
+    return templates.TemplateResponse(
+        "jobs.html",
+        {
+            "request": request,
+            "jobs": jobs,
+            "stats": stats,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "location": location,
+            "employment_type": employment_type,
+            "remote_policy": remote_policy,
+            "source": source,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+@app.get("/api/jobs")
+async def api_jobs(
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    location: Optional[str] = None,
+    employment_type: Optional[str] = None,
+    remote_policy: Optional[str] = None,
+    source: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """JSON API for job listings."""
+    jobs = database.get_active_jobs(
+        salary_min=salary_min,
+        salary_max=salary_max,
+        location=location,
+        employment_type=employment_type,
+        remote_policy=remote_policy,
+        source=source,
+        limit=limit,
+        offset=offset,
+    )
+    stats = database.get_job_stats()
+    return {"jobs": jobs, "stats": stats, "limit": limit, "offset": offset}
 
 
 @app.get("/api/companies")
