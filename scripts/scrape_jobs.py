@@ -184,26 +184,26 @@ def scrape_alfred(dry_run: bool = False) -> list[str]:
 # ---------------------------------------------------------------------------
 
 STARFATORG_LIST_QUERY = """
-query GetVacancies {
-  starfatorgVacancies {
-    id
-    title
-    institutionName
-    locations
-    applicationDeadlineFrom
-    applicationDeadlineTo
-    intro
+{
+  icelandicGovernmentInstitutionVacancies(input: {}) {
+    vacancies {
+      id
+      title
+      institutionName
+      applicationDeadlineFrom
+      applicationDeadlineTo
+      intro
+    }
   }
 }
 """
 
 STARFATORG_DETAIL_QUERY = """
-query GetVacancy($id: ID!) {
-  starfatorgVacancy(id: $id) {
+query GetVacancy($id: String!) {
+  icelandicGovernmentInstitutionVacancyById(id: $id) {
     id
     title
     institutionName
-    locations
     applicationDeadlineFrom
     applicationDeadlineTo
     intro
@@ -278,7 +278,11 @@ def scrape_starfatorg(dry_run: bool = False) -> list[str]:
     resp.raise_for_status()
     data = resp.json()
 
-    vacancies = (data.get("data") or {}).get("starfatorgVacancies") or []
+    vacancies = (
+        (data.get("data") or {})
+        .get("icelandicGovernmentInstitutionVacancies", {})
+        .get("vacancies", [])
+    )
     log.info("Starfatorg: found %d vacancies", len(vacancies))
 
     if not vacancies:
@@ -303,7 +307,7 @@ def scrape_starfatorg(dry_run: bool = False) -> list[str]:
             )
             detail_resp.raise_for_status()
             detail_data = detail_resp.json()
-            detail = (detail_data.get("data") or {}).get("starfatorgVacancy")
+            detail = (detail_data.get("data") or {}).get("icelandicGovernmentInstitutionVacancyById")
         except Exception:
             log.warning("Starfatorg: failed to fetch detail for %s, using list data", vid, exc_info=True)
             detail = None
