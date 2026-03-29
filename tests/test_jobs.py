@@ -306,24 +306,26 @@ def test_parse_alfred_job():
     from scripts.scrape_jobs import parse_alfred_job
 
     raw = {
-        "id": "abc-123",
-        "title": "Hugbunadarverkfraedingur",
-        "brand": {"name": "Acme ehf.", "slug": "acme-ehf"},
-        "location": {"name": "Reykjavik", "latitude": 64.15, "longitude": -21.94},
-        "employmentType": {"name": "Full-time"},
-        "description": "<p>Great job</p>",
-        "applicationDeadline": "2026-05-01T00:00:00",
-        "createdAt": "2026-03-15T10:00:00",
+        "id": 164723,
+        "slug": "framendaforritari-38",
+        "title": "Framendaforritari",
+        "brand": {"id": 8885, "name": "Helix Health", "slug": "helix-health"},
+        "addresses": [{"formatted": "Borgartun 37, 105 Reykjavik", "lat": 64.15, "lng": -21.94}],
+        "employmentType": ["FULL_TIME"],
+        "jobTypes": ["Fullt starf"],
+        "bodyhtml": "<p>Great job</p>",
+        "deadline": "2026-05-01T23:59:59Z",
+        "published": "2026-03-15T10:00:00Z",
         "jobCompensations": [],
     }
     listing = parse_alfred_job(raw)
     assert listing.source == "alfred"
-    assert listing.source_id == "abc-123"
-    assert listing.title == "Hugbunadarverkfraedingur"
-    assert listing.employer_name == "Acme ehf."
-    assert listing.location == "Reykjavik"
-    assert listing.employment_type == "Full-time"
-    assert "alfred.is/starf/acme-ehf/abc-123" in listing.source_url
+    assert listing.source_id == "164723"
+    assert listing.title == "Framendaforritari"
+    assert listing.employer_name == "Helix Health"
+    assert "Borgartun" in listing.location
+    assert listing.employment_type == "FULL_TIME"
+    assert "alfred.is/starf/helix-health/" in listing.source_url
     assert listing.deadline == "2026-05-01"
     assert listing.posted_date == "2026-03-15"
     assert listing.is_active is True
@@ -334,19 +336,19 @@ def test_parse_alfred_job_missing_brand():
     from scripts.scrape_jobs import parse_alfred_job
 
     raw = {
-        "id": "no-brand-456",
+        "id": 99999,
         "title": "Mystery Job",
         "brand": None,
-        "location": None,
-        "employmentType": None,
-        "description": "Some description",
-        "applicationDeadline": None,
-        "createdAt": None,
+        "addresses": [],
+        "employmentType": [],
+        "bodyhtml": "Some description",
+        "deadline": None,
+        "published": None,
         "jobCompensations": [],
     }
     listing = parse_alfred_job(raw)
     assert listing.source == "alfred"
-    assert listing.source_id == "no-brand-456"
+    assert listing.source_id == "99999"
     assert listing.employer_name == "Unknown"
     assert listing.location is None
     assert listing.employment_type is None

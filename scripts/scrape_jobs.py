@@ -54,21 +54,59 @@ STARFATORG_URL = "https://island.is/api/graphql"
 
 
 def parse_alfred_job(raw: dict) -> JobListing:
-    """Convert an Alfred API job object to a JobListing."""
-    brand = raw.get("brand") or {}
-    location = raw.get("location") or {}
-    emp_type = raw.get("employmentType") or {}
+    """Convert an Alfred API job object to a JobListing.
 
-    brand_slug = brand.get("slug", "")
+    Real Alfred API fields: id (int), slug, title, brand{name, slug, logo},
+    employmentType (list of strings like ["FULL_TIME"]), jobTypes (list of strings),
+    addresses[{formatted, streetName, lat, lng}], deadline (ISO), published (ISO),
+    created (ISO), description, bodyhtml, jobCompensations[].
+    """
+    brand = raw.get("brand") or {}
     job_id = str(raw.get("id", ""))
 
-    source_url = f"https://alfred.is/starf/{brand_slug}/{job_id}" if brand_slug else f"https://alfred.is/starf/{job_id}"
+    # Employment type: list of strings like ["FULL_TIME"]
+    emp_types = raw.get("employmentType") or raw.get("jobTypes") or []
+    if isinstance(emp_types, list) and emp_types:
+        emp_type = str(emp_types[0])
+    elif isinstance(emp_types, str):
+        emp_type = emp_types
+    elif isinstance(emp_types, dict):
+        emp_type = emp_types.get("name")
+    else:
+        emp_type = None
 
-    deadline_raw = raw.get("applicationDeadline")
+    # Location from addresses array
+    addresses = raw.get("addresses") or []
+    location_name = None
+    location_lat = None
+    location_lon = None
+    if addresses and isinstance(addresses, list):
+        addr = addresses[0] if isinstance(addresses[0], dict) else {}
+        location_name = addr.get("formatted") or addr.get("streetName")
+        location_lat = addr.get("lat")
+        location_lon = addr.get("lng")
+    # Fallback to location dict (old API format)
+    if not location_name:
+        loc = raw.get("location") or {}
+        if isinstance(loc, dict):
+            location_name = loc.get("name")
+            location_lat = location_lat or loc.get("latitude")
+            location_lon = location_lon or loc.get("longitude")
+
+    # Source URL
+    brand_slug = brand.get("slug", "")
+    job_slug = raw.get("slug", "")
+    source_url = f"https://alfred.is/starf/{brand_slug}/{job_slug or job_id}" if brand_slug else f"https://alfred.is/starf/{job_id}"
+
+    # Dates
+    deadline_raw = raw.get("deadline") or raw.get("applicationDeadline")
     deadline = deadline_raw[:10] if deadline_raw else None
 
-    created_raw = raw.get("createdAt")
+    created_raw = raw.get("published") or raw.get("created") or raw.get("createdAt")
     posted_date = created_raw[:10] if created_raw else None
+
+    # Description: prefer bodyhtml over description
+    description = raw.get("bodyhtml") or raw.get("description") or ""
 
     return JobListing(
         id=None,
@@ -76,11 +114,11 @@ def parse_alfred_job(raw: dict) -> JobListing:
         source_id=job_id,
         title=raw.get("title", ""),
         employer_name=brand.get("name", "Unknown"),
-        location=location.get("name"),
-        location_lat=location.get("latitude"),
-        location_lon=location.get("longitude"),
-        employment_type=emp_type.get("name"),
-        description_raw=raw.get("description"),
+        location=location_name,
+        location_lat=location_lat,
+        location_lon=location_lon,
+        employment_type=emp_type,
+        description_raw=description,
         source_url=source_url,
         posted_date=posted_date,
         deadline=deadline,
