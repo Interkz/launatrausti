@@ -73,6 +73,40 @@ class ScrapeLogEntry:
     updated_at: datetime
 
 
+@dataclass
+class JobListing:
+    id: Optional[int]
+    source: str
+    source_id: Optional[str]
+    title: str
+    employer_name: str
+    company_id: Optional[int] = None
+    location: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lon: Optional[float] = None
+    employment_type: Optional[str] = None
+    description_raw: Optional[str] = None
+    source_url: Optional[str] = None
+    posted_date: Optional[str] = None
+    deadline: Optional[str] = None
+    work_hours: Optional[str] = None
+    remote_policy: Optional[str] = None
+    salary_text: Optional[str] = None
+    salary_lower: Optional[int] = None
+    salary_upper: Optional[int] = None
+    benefits: Optional[str] = None
+    union_name: Optional[str] = None
+    languages: Optional[str] = None
+    education_required: Optional[str] = None
+    experience_years: Optional[str] = None
+    estimated_salary: Optional[int] = None
+    salary_source: Optional[str] = None
+    salary_confidence: Optional[float] = None
+    salary_details: Optional[str] = None
+    extracted_at: Optional[str] = None
+    is_active: bool = True
+
+
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -196,6 +230,44 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS job_listings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            source_id TEXT,
+            title TEXT NOT NULL,
+            employer_name TEXT NOT NULL,
+            company_id INTEGER,
+            location TEXT,
+            location_lat REAL,
+            location_lon REAL,
+            employment_type TEXT,
+            description_raw TEXT,
+            source_url TEXT,
+            posted_date TEXT,
+            deadline TEXT,
+            work_hours TEXT,
+            remote_policy TEXT,
+            salary_text TEXT,
+            salary_lower INTEGER,
+            salary_upper INTEGER,
+            benefits TEXT,
+            union_name TEXT,
+            languages TEXT,
+            education_required TEXT,
+            experience_years TEXT,
+            estimated_salary INTEGER,
+            salary_source TEXT,
+            salary_confidence REAL,
+            salary_details TEXT,
+            extracted_at TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT (datetime('now')),
+            updated_at DATETIME DEFAULT (datetime('now')),
+            UNIQUE(source, source_id)
+        )
+    """)
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
@@ -207,6 +279,11 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_name ON hagstofa_occupations(occupation_name)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_year ON hagstofa_occupations(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_hagstofa_occ_code ON hagstofa_occupations(isco_code)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_company ON job_listings(company_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_active ON job_listings(is_active)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_source ON job_listings(source)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_deadline ON job_listings(deadline)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_salary ON job_listings(estimated_salary)")
 
     conn.commit()
     conn.close()
@@ -841,6 +918,247 @@ def save_hagstofa_occupation(
     conn.commit()
     conn.close()
     return record_id
+
+
+def save_job_listing(listing: JobListing) -> int:
+    """Insert or update job listing (UPSERT on source + source_id).
+    On conflict, updates basic info but preserves extracted fields and existing company_id."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO job_listings
+            (source, source_id, title, employer_name, company_id, location,
+             location_lat, location_lon, employment_type, description_raw,
+             source_url, posted_date, deadline, work_hours, remote_policy,
+             salary_text, salary_lower, salary_upper, benefits, union_name,
+             languages, education_required, experience_years,
+             estimated_salary, salary_source, salary_confidence, salary_details,
+             extracted_at, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (source, source_id) DO UPDATE SET
+            title = excluded.title,
+            employer_name = excluded.employer_name,
+            company_id = COALESCE(excluded.company_id, job_listings.company_id),
+            location = excluded.location,
+            location_lat = excluded.location_lat,
+            location_lon = excluded.location_lon,
+            employment_type = excluded.employment_type,
+            description_raw = excluded.description_raw,
+            source_url = excluded.source_url,
+            posted_date = excluded.posted_date,
+            deadline = excluded.deadline,
+            work_hours = excluded.work_hours,
+            remote_policy = excluded.remote_policy,
+            salary_text = excluded.salary_text,
+            salary_lower = excluded.salary_lower,
+            salary_upper = excluded.salary_upper,
+            benefits = excluded.benefits,
+            union_name = excluded.union_name,
+            languages = excluded.languages,
+            education_required = excluded.education_required,
+            experience_years = excluded.experience_years,
+            is_active = excluded.is_active,
+            updated_at = datetime('now')
+    """, (listing.source, listing.source_id, listing.title, listing.employer_name,
+          listing.company_id, listing.location, listing.location_lat, listing.location_lon,
+          listing.employment_type, listing.description_raw, listing.source_url,
+          listing.posted_date, listing.deadline, listing.work_hours, listing.remote_policy,
+          listing.salary_text, listing.salary_lower, listing.salary_upper,
+          listing.benefits, listing.union_name, listing.languages,
+          listing.education_required, listing.experience_years,
+          listing.estimated_salary, listing.salary_source, listing.salary_confidence,
+          listing.salary_details, listing.extracted_at, listing.is_active))
+
+    job_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return job_id
+
+
+def get_active_jobs(
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    location: Optional[str] = None,
+    employment_type: Optional[str] = None,
+    remote_policy: Optional[str] = None,
+    source: Optional[str] = None,
+    company_id: Optional[int] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """Get active job listings with optional filters."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    where_clauses = ["is_active = 1"]
+    params = []
+
+    if salary_min is not None:
+        where_clauses.append("estimated_salary >= ?")
+        params.append(salary_min)
+    if salary_max is not None:
+        where_clauses.append("estimated_salary <= ?")
+        params.append(salary_max)
+    if location:
+        where_clauses.append("location LIKE ?")
+        params.append(f"%{location}%")
+    if employment_type:
+        where_clauses.append("employment_type = ?")
+        params.append(employment_type)
+    if remote_policy:
+        where_clauses.append("remote_policy = ?")
+        params.append(remote_policy)
+    if source:
+        where_clauses.append("source = ?")
+        params.append(source)
+    if company_id is not None:
+        where_clauses.append("company_id = ?")
+        params.append(company_id)
+
+    where_sql = " AND ".join(where_clauses)
+    params.extend([limit, offset])
+
+    cursor.execute(f"""
+        SELECT * FROM job_listings
+        WHERE {where_sql}
+        ORDER BY estimated_salary IS NULL, estimated_salary DESC, posted_date DESC
+        LIMIT ? OFFSET ?
+    """, params)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_company_jobs(company_id: int) -> list[dict]:
+    """Get active job listings for a specific company."""
+    return get_active_jobs(company_id=company_id, limit=100)
+
+
+def get_unextracted_jobs(limit: int = 100) -> list[dict]:
+    """Get active jobs that haven't been through extraction yet."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM job_listings
+        WHERE extracted_at IS NULL AND is_active = 1
+        ORDER BY created_at ASC
+        LIMIT ?
+    """, (limit,))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_unmatched_jobs() -> list[dict]:
+    """Get active jobs not yet matched to a company."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM job_listings
+        WHERE company_id IS NULL AND is_active = 1
+        ORDER BY created_at ASC
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_jobs_needing_salary_estimate() -> list[dict]:
+    """Get active jobs without an estimated salary."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM job_listings
+        WHERE estimated_salary IS NULL AND is_active = 1
+        ORDER BY created_at ASC
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def deactivate_stale_jobs(source: str, active_source_ids: list[str]) -> int:
+    """Deactivate jobs that are stale. Three rules:
+    (a) source matches but source_id not in active_source_ids list
+    (b) deadline has passed
+    (c) posted_date is more than 90 days ago
+    Returns total number of deactivated jobs."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    total = 0
+
+    # (a) Not in active source IDs list
+    if active_source_ids:
+        placeholders = ",".join("?" * len(active_source_ids))
+        cursor.execute(f"""
+            UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
+            WHERE source = ? AND source_id NOT IN ({placeholders})
+            AND is_active = 1
+        """, [source] + active_source_ids)
+    else:
+        # If no active IDs provided, deactivate all from this source
+        cursor.execute("""
+            UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
+            WHERE source = ? AND is_active = 1
+        """, (source,))
+    total += cursor.rowcount
+
+    # (b) Past deadline
+    cursor.execute("""
+        UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
+        WHERE deadline < date('now') AND deadline IS NOT NULL AND is_active = 1
+    """)
+    total += cursor.rowcount
+
+    # (c) Posted more than 90 days ago
+    cursor.execute("""
+        UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
+        WHERE posted_date < date('now', '-90 days') AND posted_date IS NOT NULL AND is_active = 1
+    """)
+    total += cursor.rowcount
+
+    conn.commit()
+    conn.close()
+    return total
+
+
+def get_job_stats() -> dict:
+    """Get summary statistics for job listings."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM job_listings WHERE is_active = 1")
+    active_jobs = cursor.fetchone()["cnt"]
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM job_listings WHERE is_active = 1 AND company_id IS NOT NULL")
+    matched_jobs = cursor.fetchone()["cnt"]
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM job_listings WHERE is_active = 1 AND extracted_at IS NOT NULL")
+    extracted_jobs = cursor.fetchone()["cnt"]
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM job_listings WHERE is_active = 1 AND estimated_salary IS NOT NULL")
+    jobs_with_salary = cursor.fetchone()["cnt"]
+
+    cursor.execute("SELECT DISTINCT source FROM job_listings WHERE is_active = 1 ORDER BY source")
+    job_sources = [row["source"] for row in cursor.fetchall()]
+
+    conn.close()
+
+    return {
+        "active_jobs": active_jobs,
+        "matched_jobs": matched_jobs,
+        "extracted_jobs": extracted_jobs,
+        "jobs_with_salary": jobs_with_salary,
+        "job_sources": job_sources,
+    }
 
 
 # Initialize database on import
