@@ -28,7 +28,7 @@ from pathlib import Path
 # Project root: one level up from scripts/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-TOTAL_STAGES = 7
+TOTAL_STAGES = 11
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +195,80 @@ def run_stage_6(dry_run: bool = False, verbose: bool = False) -> bool:
     return True
 
 
+def run_stage_8(dry_run: bool = False, verbose: bool = False) -> bool:
+    """Stage 8: Scrape job listings from Alfred.is and Starfatorg."""
+    banner(8, "Scrape job listings (Alfred + Starfatorg)")
+
+    args = ["scripts/scrape_jobs.py"]
+    if dry_run:
+        args.append("--dry-run")
+
+    result = run_script(args, verbose=verbose)
+
+    if result.returncode != 0:
+        print(f"  [ERROR] Stage 8 exited with code {result.returncode}")
+        return False
+
+    print("  [OK] Job scraping complete.")
+    return True
+
+
+def run_stage_9(dry_run: bool = False, verbose: bool = False) -> bool:
+    """Stage 9: Extract structured fields from job descriptions (Claude API)."""
+    banner(9, "Extract job fields via AI")
+
+    args = ["scripts/extract_jobs.py"]
+    if dry_run:
+        args.append("--dry-run")
+
+    result = run_script(args, verbose=verbose)
+
+    if result.returncode != 0:
+        print(f"  [ERROR] Stage 9 exited with code {result.returncode}")
+        return False
+
+    print("  [OK] Job field extraction complete.")
+    return True
+
+
+def run_stage_10(dry_run: bool = False, verbose: bool = False) -> bool:
+    """Stage 10: Match job employers to companies in database."""
+    banner(10, "Match job employers to companies")
+
+    if dry_run:
+        print("  [SKIP] Dry run — skipping company matching")
+        return True
+
+    args = ["scripts/match_companies.py"]
+    result = run_script(args, verbose=verbose)
+
+    if result.returncode != 0:
+        print(f"  [ERROR] Stage 10 exited with code {result.returncode}")
+        return False
+
+    print("  [OK] Company matching complete.")
+    return True
+
+
+def run_stage_11(dry_run: bool = False, verbose: bool = False) -> bool:
+    """Stage 11: Pre-compute salary estimates for job listings."""
+    banner(11, "Estimate salaries for job listings")
+
+    if dry_run:
+        print("  [SKIP] Dry run — skipping salary estimation")
+        return True
+
+    args = ["scripts/estimate_salaries.py"]
+    result = run_script(args, verbose=verbose)
+
+    if result.returncode != 0:
+        print(f"  [ERROR] Stage 11 exited with code {result.returncode}")
+        return False
+
+    print("  [OK] Salary estimation complete.")
+    return True
+
+
 def run_stage_7(verbose: bool = False) -> bool:
     """Stage 7: Print summary statistics from database."""
     banner(7, "Platform summary statistics")
@@ -236,6 +310,7 @@ def run_pipeline(
     stage: int | None = None,
     dry_run: bool = False,
     skip_scrape: bool = False,
+    skip_jobs: bool = False,
     delete_sample: bool = False,
     verbose: bool = False,
 ) -> None:
@@ -249,6 +324,10 @@ def run_pipeline(
         5: lambda: run_stage_5(dry_run=dry_run, verbose=verbose),
         6: lambda: run_stage_6(dry_run=dry_run, verbose=verbose),
         7: lambda: run_stage_7(verbose=verbose),
+        8: lambda: run_stage_8(dry_run=dry_run, verbose=verbose),
+        9: lambda: run_stage_9(dry_run=dry_run, verbose=verbose),
+        10: lambda: run_stage_10(dry_run=dry_run, verbose=verbose),
+        11: lambda: run_stage_11(dry_run=dry_run, verbose=verbose),
     }
 
     # Determine which stages to run
@@ -258,6 +337,9 @@ def run_pipeline(
         stages_to_run = list(range(1, TOTAL_STAGES + 1))
         if skip_scrape:
             stages_to_run = [s for s in stages_to_run if s not in (4, 5)]
+
+    if skip_jobs:
+        stages_to_run = [s for s in stages_to_run if s not in (8, 9, 10, 11)]
 
     if dry_run:
         print("*** DRY RUN MODE -- no data will be modified ***")
@@ -328,12 +410,17 @@ Stages:
   5  Scrape Rikisreikningur government institution PDFs
   6  Extract financial data from all downloaded PDFs
   7  Print summary statistics
+  8  Scrape job listings (Alfred + Starfatorg)
+  9  Extract job fields via AI (Claude API)
+  10 Match job employers to companies
+  11 Estimate salaries for job listings
 
 Examples:
   %(prog)s                     Run all stages
   %(prog)s --dry-run           Run all stages without side effects
   %(prog)s --stage 7           Print current database stats
   %(prog)s --skip-scrape       Skip web scraping (stages 4 & 5)
+  %(prog)s --skip-jobs         Skip job stages (8-11)
   %(prog)s --delete-sample     Delete sample data in stage 1
         """,
     )
@@ -356,6 +443,11 @@ Examples:
         help="Skip stages 4 and 5 (web scraping)",
     )
     parser.add_argument(
+        "--skip-jobs",
+        action="store_true",
+        help="Skip stages 8-11 (job scraping and processing)",
+    )
+    parser.add_argument(
         "--delete-sample",
         action="store_true",
         help="Actually delete sample data in stage 1 (default: only flag)",
@@ -372,6 +464,7 @@ Examples:
         stage=args.stage,
         dry_run=args.dry_run,
         skip_scrape=args.skip_scrape,
+        skip_jobs=args.skip_jobs,
         delete_sample=args.delete_sample,
         verbose=args.verbose,
     )

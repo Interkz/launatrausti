@@ -68,3 +68,26 @@ def sample_vr_surveys(test_db):
             )
             db.save_vr_survey(survey)
         return 5
+
+
+@pytest.fixture
+def sample_jobs(test_db, sample_company):
+    """Insert sample job listings for testing."""
+    with patch.object(db, "DB_PATH", test_db):
+        for i, (title, salary, source) in enumerate([
+            ("Software Developer", 800000, "alfred"),
+            ("Project Manager", 700000, "alfred"),
+            ("Government Analyst", 650000, "starfatorg"),
+        ]):
+            listing = db.JobListing(
+                id=None, source=source, source_id=f"test-{i}",
+                title=title, employer_name="Test Company ehf.",
+                company_id=sample_company, location="Reykjavik",
+                employment_type="full-time",
+                description_raw=f"Job description for {title}",
+                posted_date="2026-03-01", deadline="2026-06-01",
+                estimated_salary=salary, salary_source="test",
+                salary_confidence=0.8, salary_details="test data",
+            )
+            db.save_job_listing(listing)
+        return sample_company
