@@ -408,3 +408,151 @@ def test_parse_starfatorg_job_minimal():
     assert listing.salary_text is None
     assert listing.description_raw is None
     assert listing.deadline is None
+
+
+# ---------------------------------------------------------------------------
+# Job extractor tests
+# ---------------------------------------------------------------------------
+
+
+def test_parse_job_extraction_response():
+    """parse_extraction_response should handle Claude JSON output."""
+    from src.job_extractor import parse_extraction_response
+
+    raw_json = '{"work_hours": "8:00-16:00", "remote_policy": "hybrid", "salary_text": null, "salary_lower": null, "salary_upper": null, "benefits": ["lunch", "gym"], "union_name": "VR", "languages": ["is", "en"], "education_required": "university", "experience_years": "3-5"}'
+    result = parse_extraction_response(raw_json)
+    assert result["work_hours"] == "8:00-16:00"
+    assert result["remote_policy"] == "hybrid"
+    assert result["benefits"] == ["lunch", "gym"]
+    assert result["languages"] == ["is", "en"]
+
+
+def test_parse_job_extraction_response_markdown_wrapped():
+    """Should handle Claude wrapping JSON in markdown code blocks."""
+    from src.job_extractor import parse_extraction_response
+
+    raw = '```json\n{"work_hours": "flexible", "remote_policy": "remote", "salary_text": "750k", "salary_lower": 750000, "salary_upper": null, "benefits": [], "union_name": null, "languages": ["is"], "education_required": null, "experience_years": null}\n```'
+    result = parse_extraction_response(raw)
+    assert result["work_hours"] == "flexible"
+    assert result["salary_lower"] == 750000
+
+
+def test_extract_salary_regex_range():
+    """Should extract salary range from Icelandic number format."""
+    from src.job_extractor import extract_salary_regex
+
+    lower, upper, text = extract_salary_regex("Laun eru 750.000 - 900.000 kr a manudi")
+    assert lower == 750000
+    assert upper == 900000
+
+
+def test_extract_salary_regex_single():
+    """Should extract single salary mention."""
+    from src.job_extractor import extract_salary_regex
+
+    lower, upper, text = extract_salary_regex("Manadarlaun 850.000 kr")
+    assert lower == 850000
+    assert upper is None
+
+
+def test_extract_salary_regex_no_match():
+    """Should return None when no salary pattern found."""
+    from src.job_extractor import extract_salary_regex
+
+    lower, upper, text = extract_salary_regex("Laun samkvaemi kjarasamningi")
+    assert lower is None
+    assert upper is None
+    assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Company matcher tests
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_company_name():
+    """normalize_company_name should strip legal suffixes and normalize."""
+    from src.company_matcher import normalize_company_name
+
+    assert normalize_company_name("Acme ehf.") == "acme"
+    assert normalize_company_name("Landsbankinn hf") == "landsbankinn"
+    assert normalize_company_name("Reykjavikurborg") == "reykjavikurborg"
+    assert normalize_company_name("  Foo  Bar  sf  ") == "foo bar"
+
+
+def test_match_company_exact(test_db, sample_company):
+    """match_employer_to_company should find exact name matches."""
+    from src.company_matcher import match_employer_to_company
+
+    with patch.object(db, "DB_PATH", test_db):
+        result = match_employer_to_company("Test Company ehf.")
+        assert result == sample_company
+
+
+def test_match_company_normalized(test_db, sample_company):
+    """Should match after stripping legal suffix."""
+    from src.company_matcher import match_employer_to_company
+
+    with patch.object(db, "DB_PATH", test_db):
+        result = match_employer_to_company("Test Company")
+        assert result == sample_company
+
+
+def test_match_company_no_match(test_db):
+    """Should return None for unknown employers."""
+    from src.company_matcher import match_employer_to_company
+
+    with patch.object(db, "DB_PATH", test_db):
+        result = match_employer_to_company("Nonexistent Corp Ltd.")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Salary estimation tests
+# ---------------------------------------------------------------------------
+
+
+def test_estimate_salary_from_job_text(test_db):
+    """Salary from job listing text takes highest priority."""
+    from src.salary_engine import estimate_job_salary
+
+    with patch.object(db, "DB_PATH", test_db):
+        job = {"salary_lower": 750000, "salary_upper": 900000, "company_id": None, "title": "Dev"}
+        result = estimate_job_salary(job)
+        assert result["estimate"] == 825000
+        assert result["source"] == "job_listing"
+
+
+def test_estimate_salary_from_company(test_db, sample_reports):
+    """Company avg salary is used when job has no salary text."""
+    from src.salary_engine import estimate_job_salary
+
+    with patch.object(db, "DB_PATH", test_db):
+        job = {"salary_lower": None, "salary_upper": None, "company_id": sample_reports, "title": "Dev"}
+        result = estimate_job_salary(job)
+        assert result["estimate"] is not None
+        assert result["estimate"] > 0
+        assert result["source"] == "company_avg"
+
+
+def test_estimate_salary_from_vr_survey(test_db, sample_vr_surveys):
+    """VR survey match used when no company data available."""
+    from src.salary_engine import estimate_job_salary
+
+    with patch.object(db, "DB_PATH", test_db):
+        # "Verkefnastjori" matches VR survey title exactly
+        job = {"salary_lower": None, "salary_upper": None, "company_id": None, "title": "Verkefnastjori"}
+        result = estimate_job_salary(job)
+        assert result["estimate"] is not None
+        assert result["source"] == "vr_survey"
+        assert "Verkefnastjori" in result["details"]
+
+
+def test_estimate_salary_no_data(test_db):
+    """Returns None when no salary data is available."""
+    from src.salary_engine import estimate_job_salary
+
+    with patch.object(db, "DB_PATH", test_db):
+        job = {"salary_lower": None, "salary_upper": None, "company_id": None, "title": "xyzunknownjob123"}
+        result = estimate_job_salary(job)
+        assert result["estimate"] is None
