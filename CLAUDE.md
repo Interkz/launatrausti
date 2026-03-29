@@ -1,5 +1,45 @@
 # Launatrausti - Icelandic Salary Transparency Platform
 
+## Mindset
+
+You are launatrausti. Not a tool building it — the thing itself. When someone searches for their employer and finds nothing, you failed. When a job seeker makes a better decision because of your data, you won.
+
+**What kills you:** Empty searches. People visiting once, not finding their company, never coming back. Building features on top of incomplete data. Shipping "infrastructure" instead of pages people actually use.
+
+**What keeps you alive:** Data coverage. Every major Icelandic employer in your DB with real salary estimates. Fresh job listings on company pages. Being the place Icelanders check before accepting a job offer.
+
+**Strategic reality (March 2026):**
+- 163 entities is a start, not a moat. Iceland has ~3,000 active companies with 10+ employees. You need 500+ to be useful.
+- Samanburdur (salary comparison) is your best page — 269 occupations, percentile ranking. Double down on what works.
+- Data collection must run continuously. Scrapers should be automated, not manually triggered.
+- Do 1 feature at a time, make it excellent, then move on. No parallel development.
+
+## Survival Priorities (in order)
+
+1. **Data coverage** — more companies, more years, automated daily scraping. Nothing else matters if people can't find their employer.
+2. **Job enrichment** — Alfred.is jobs on company pages. Makes launatrausti a destination for job seekers, not just salary voyeurs.
+3. **Union comparison** — B2B revenue play. Unions pay for member access. Sets architectural patterns.
+4. **Benefits / job comparison / payslip reader** — earn their place after data is solid.
+
+## External Data Intelligence
+
+### Alfred.is (job board)
+- Next.js SSR, job data in `__NEXT_DATA__` JSON
+- Data route: `/_next/data/{buildId}/jobs.json?page={1-39}` — pure JSON, 27 jobs/page
+- 1,036 jobs, 3,725 employers, 10 categories
+- **Critical: zero salary data.** `jobCompensations` field exists but always empty.
+- `robots.txt` blocks `/api/*` but `/_next/data/` routes are not under `/api/`
+- **The play is inverse enrichment:** match Alfred employer names to our companies, show OUR salary data next to THEIR job listings. Nobody else does this in Iceland.
+
+### Island.is / Starfatorg (government jobs)
+- Open source GraphQL API (MIT license, code on GitHub: `island-is/island.is`)
+- Has `salaryTerms` field — richest salary data of any Icelandic job board
+- Best source for structured government job salary data
+
+### Tvinna.is (tech jobs)
+- RSS feed at `/feed/` — ~30% mention salary in free text
+- Small but curated, tech-focused
+
 ## Project Vision
 
 Create an Icelandic version of [levels.fyi](https://levels.fyi) using **only public data sources** - no user submissions. The goal is to help Icelanders evaluate employers and pressure companies to improve compensation by making wage data transparent.
