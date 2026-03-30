@@ -91,6 +91,35 @@ def _best_title_match(title: str, rows: list, name_key: str, score_threshold: fl
     return None, 0.0
 
 
+def _get_wage_floor(cursor, title: str) -> tuple:
+    """Check kjarasamningar wage tables for minimum salary. Returns (floor, details) or (None, None)."""
+    if not title:
+        return None, None
+
+    # Try matching job title to wage_grade_mappings
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='wage_grade_mappings'")
+    if not cursor.fetchone():
+        return None, None
+
+    cursor.execute("SELECT grade, job_title FROM wage_grade_mappings")
+    mappings = cursor.fetchall()
+    match, score = _best_title_match(title, mappings, "job_title", score_threshold=0.4)
+    if not match:
+        return None, None
+
+    # Get the wage for this grade (start salary = minimum)
+    cursor.execute("""
+        SELECT start_salary, year_5_salary, union_name
+        FROM wage_tables WHERE grade = ?
+        ORDER BY start_salary DESC LIMIT 1
+    """, (match["grade"],))
+    wage = cursor.fetchone()
+    if not wage:
+        return None, None
+
+    return wage["start_salary"], f"Kjarasamn. fl.{match['grade']} ({wage['union_name']}): {match['job_title'][:30]}"
+
+
 def _get_occupation_salary(cursor, title: str) -> tuple:
     """Try VR surveys then Hagstofa occupations. Returns (salary, source, details, score)."""
     if not title:
@@ -167,12 +196,13 @@ def estimate_job_salary(job: dict) -> dict:
     company_id = job.get("company_id")
     title = job.get("title", "")
 
-    # Get both signals
+    # Get all signals
     company_factor, company_monthly, report_year = (None, None, None)
     if company_id:
         company_factor, company_monthly, report_year = _get_company_factor(cursor, company_id)
 
     occ_salary, occ_source, occ_details, occ_score = _get_occupation_salary(cursor, title)
+    wage_floor, wage_floor_details = _get_wage_floor(cursor, title)
 
     # Priority 2: Blended estimate (company_factor * occupation_salary)
     # This is the key innovation — a programmer at a high-paying company
@@ -209,6 +239,16 @@ def estimate_job_salary(job: dict) -> dict:
             "source": occ_source,
             "confidence": confidence,
             "details": occ_details,
+        }
+
+    # Priority 4.5: Kjarasamningar wage floor (if title matches a wage table entry)
+    if wage_floor:
+        conn.close()
+        return {
+            "estimate": wage_floor,
+            "source": "kjarasamningur",
+            "confidence": 0.5,
+            "details": wage_floor_details,
         }
 
     # Priority 5: Hagstofa industry average (if company has ISAT code)
