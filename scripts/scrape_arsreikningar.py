@@ -194,47 +194,37 @@ async def _navigate_to_company(page: Page, kennitala: str) -> bool:
 
 async def _find_arsreikningar_section(page: Page) -> Optional[object]:
     """
-    Locate the annual reports section on the page.
+    Locate and EXPAND the annual reports section on the page.
 
-    The section is titled "Gogn ur arsreikningaskra" (or a variant with accents).
-    We look for headings, table headers, or identifiable DOM patterns.
+    The section is a collapsible toggle titled "Gögn úr ársreikningaskrá".
+    We need to click it to reveal the report table.
 
-    Returns the section element if found, None otherwise.
+    Returns the section element if found and expanded, None otherwise.
     """
-    # Try multiple selector strategies for resilience
-    selectors = [
-        # Strategy 1: heading text match (case-insensitive partial)
-        "h2:has-text('rsreikningaskr'), h3:has-text('rsreikningaskr'), h4:has-text('rsreikningaskr')",
-        # Strategy 2: heading containing "ársreikn" or "arsreikn"
-        "h2:has-text('rsreikn'), h3:has-text('rsreikn'), h4:has-text('rsreikn')",
-        # Strategy 3: section or div with identifiable ID or class
-        "[id*='arsreikn' i], [class*='arsreikn' i]",
-        # Strategy 4: table header containing year-like text near "arsreikn"
-        "text='Gögn úr ársreikningaskrá'",
-        "text='Gogn ur arsreikningaskra'",
-    ]
+    # Click the toggle to expand the section
+    toggle = await page.query_selector('text="Gögn úr ársreikningaskrá"')
+    if toggle:
+        try:
+            await toggle.click()
+            await asyncio.sleep(2)
+            logger.debug("Expanded ársreikningaskrá section")
+            return toggle
+        except Exception as exc:
+            logger.warning("Failed to expand ársreikningaskrá: %s", exc)
 
-    for selector in selectors:
+    # Fallback selectors
+    for selector in [
+        "text='Gogn ur arsreikningaskra'",
+        "h2:has-text('rsreikningaskr'), h3:has-text('rsreikningaskr')",
+    ]:
         try:
             element = await page.wait_for_selector(selector, timeout=ELEMENT_TIMEOUT)
             if element:
-                logger.debug("Found arsreikningar section via selector: %s", selector)
+                await element.click()
+                await asyncio.sleep(2)
                 return element
-        except PlaywrightTimeout:
+        except (PlaywrightTimeout, Exception):
             continue
-        except Exception as exc:
-            logger.debug("Selector '%s' failed: %s", selector, exc)
-            continue
-
-    # Fallback: search all text on page for the section
-    logger.debug("Trying text-content fallback search for arsreikningar section")
-    try:
-        content = await page.content()
-        if "rsreikningaskr" in content.lower():
-            logger.info("Page contains arsreikningar text but could not locate element precisely")
-            return True  # Signal that the section exists but we cannot pinpoint it
-    except Exception:
-        pass
 
     return None
 
@@ -242,64 +232,69 @@ async def _find_arsreikningar_section(page: Page) -> Optional[object]:
 async def _find_report_entries(page: Page, target_years: list[int]) -> list[dict]:
     """
     Parse the annual report table and extract entries for the target years.
+    Only considers VISIBLE rows with visible Kaupa buttons (after section expansion).
 
-    Returns a list of dicts with keys: year, report_number, report_type, element.
-    The 'element' may be a clickable link or None if no link is found.
+    Returns a list of dicts with keys: year, report_number, report_type, link_element.
+    Prefers "Ársreikningur" over "Samstæðureikningur" for each year.
     """
     entries = []
+    seen_years = set()
 
-    # Try to find the table rows within the arsreikningar section.
-    # The table typically has columns: Rek. ar, Nafn, Skiladagsetning, Nr. arsreiknings, Tegund
-    # We look for table rows that contain year numbers matching our targets.
     try:
-        # Strategy 1: look for table rows
-        rows = await page.query_selector_all("table tr, .table-row, [role='row']")
-        if not rows:
-            # Strategy 2: broader search for any tabular data
-            rows = await page.query_selector_all("tr")
-
+        rows = await page.query_selector_all("tr")
         for row in rows:
+            if not await row.is_visible():
+                continue
+
             text = await row.inner_text()
-            if not text:
+            if not text or "kaupa" not in text.lower():
+                continue
+
+            # Find visible Kaupa link in this row
+            kaupa = await row.query_selector('a:has-text("Kaupa")')
+            if not kaupa or not await kaupa.is_visible():
                 continue
 
             for year in target_years:
-                year_str = str(year)
-                if year_str in text:
-                    # Try to extract report number from the row
-                    cells = await row.query_selector_all("td, th")
-                    report_number = None
-                    report_type = None
+                if str(year) not in text:
+                    continue
 
-                    for cell in cells:
-                        cell_text = (await cell.inner_text()).strip()
-                        # Report numbers are typically 6-digit integers
-                        if cell_text.isdigit() and len(cell_text) >= 5:
-                            report_number = cell_text
+                # Extract report number (5-6 digit number)
+                cells = await row.query_selector_all("td")
+                report_number = None
+                for cell in cells:
+                    cell_text = (await cell.inner_text()).strip()
+                    if cell_text.isdigit() and len(cell_text) >= 5:
+                        report_number = cell_text
 
-                    # Determine report type from row text
-                    text_lower = text.lower()
-                    if "samstaedu" in text_lower or "samstaed" in text_lower or "consolidated" in text_lower:
-                        report_type = "consolidated"
-                    elif "einstaklings" in text_lower or "individual" in text_lower or "serstakt" in text_lower:
-                        report_type = "individual"
-                    else:
-                        report_type = "unknown"
+                # Determine report type
+                text_lower = text.lower()
+                if "samstæðu" in text_lower or "samstaed" in text_lower:
+                    report_type = "consolidated"
+                elif "ársreikningur" in text_lower or "arsreikningur" in text_lower:
+                    report_type = "individual"
+                else:
+                    report_type = "unknown"
 
-                    # Try to find a clickable link within the row
-                    link = await row.query_selector("a[href]")
+                # Prefer individual (Ársreikningur) over consolidated
+                if year in seen_years and report_type != "individual":
+                    continue
 
-                    entries.append({
-                        "year": year,
-                        "report_number": report_number,
-                        "report_type": report_type,
-                        "row_text": text.strip()[:200],
-                        "link_element": link,
-                    })
-                    logger.debug(
-                        "Found entry: year=%d, report_number=%s, type=%s",
-                        year, report_number, report_type,
-                    )
+                # Remove previous entry for this year if we found a better one
+                entries = [e for e in entries if e["year"] != year]
+                seen_years.add(year)
+
+                entries.append({
+                    "year": year,
+                    "report_number": report_number,
+                    "report_type": report_type,
+                    "row_text": text.strip()[:200],
+                    "link_element": kaupa,
+                })
+                logger.debug(
+                    "Found entry: year=%d, report_number=%s, type=%s",
+                    year, report_number, report_type,
+                )
 
     except Exception as exc:
         logger.warning("Error parsing report table: %s", exc)
@@ -315,13 +310,12 @@ async def _attempt_download(
     dry_run: bool = False,
 ) -> Optional[Path]:
     """
-    Attempt to download a PDF for a single report entry.
-
-    Tries multiple strategies:
-    1. Click a direct link in the report row (if present).
-    2. Look for a download button or PDF link after clicking.
-    3. Intercept download events via Playwright's download handler.
-    4. Try constructing a direct URL from the report number.
+    Download a PDF via the Skatturinn cart flow:
+    1. Click "Kaupa" on the report row (adds to cart)
+    2. Navigate to cart via "Karfa" link
+    3. Click "Áfram" to proceed
+    4. Click "Sækja" to download the PDF
+    5. Navigate back to company page for next report
 
     Returns the path of the saved PDF, or None on failure.
     """
@@ -332,130 +326,107 @@ async def _attempt_download(
 
     if dry_run:
         logger.info(
-            "[DRY RUN] Would download: kennitala=%s, year=%d, report_number=%s",
-            kennitala, year, report_number,
+            "[DRY RUN] kennitala=%s, year=%d, report_number=%s, type=%s, row=%s",
+            kennitala, year, report_number, entry.get("report_type"), entry.get("row_text", "")[:80],
         )
         return None
 
-    # Strategy 1: If there is a direct link in the row, try clicking it
+    # Step 1: Click "Kaupa" on the report row
     link = entry.get("link_element")
-    if link:
-        try:
-            href = await link.get_attribute("href")
-            logger.info("Found link in report row: %s", href)
+    if not link:
+        logger.warning("No Kaupa link for kennitala=%s year=%d", kennitala, year)
+        return None
 
-            # If the href points to a PDF, download directly
-            if href and (".pdf" in href.lower() or "download" in href.lower()):
-                async with page.expect_download(timeout=PAGE_LOAD_TIMEOUT) as download_info:
-                    await link.click()
-                download = await download_info.value
-                await download.save_as(str(pdf_path))
-                logger.info("Downloaded PDF via direct link: %s", pdf_path)
-                return pdf_path
-
-            # Otherwise, click and see what happens (might open a new page or trigger download)
-            async with page.expect_download(timeout=PAGE_LOAD_TIMEOUT) as download_info:
-                await link.click()
-            download = await download_info.value
-            await download.save_as(str(pdf_path))
-            logger.info("Downloaded PDF via link click: %s", pdf_path)
-            return pdf_path
-        except PlaywrightTimeout:
-            logger.debug("No download triggered by link click, trying other strategies")
-        except Exception as exc:
-            logger.debug("Link click strategy failed: %s", exc)
-
-    # Strategy 2: Try clicking the row itself (some tables have clickable rows)
-    row_element = entry.get("link_element")
-    if not row_element:
-        # Try to find any clickable element in the general area
-        try:
-            # Look for buttons or links near the report entry
-            clickable_selectors = [
-                f"a:has-text('{report_number}')" if report_number else None,
-                f"button:has-text('{report_number}')" if report_number else None,
-                f"a:has-text('{year}')",
-                f"[data-year='{year}']",
-            ]
-            for selector in clickable_selectors:
-                if not selector:
-                    continue
-                try:
-                    el = await page.query_selector(selector)
-                    if el:
-                        async with page.expect_download(timeout=PAGE_LOAD_TIMEOUT) as download_info:
-                            await el.click()
-                        download = await download_info.value
-                        await download.save_as(str(pdf_path))
-                        logger.info("Downloaded PDF via clickable element: %s", pdf_path)
-                        return pdf_path
-                except PlaywrightTimeout:
-                    continue
-                except Exception:
-                    continue
-        except Exception as exc:
-            logger.debug("Clickable element strategy failed: %s", exc)
-
-    # Strategy 3: Look for a general "download" or "PDF" button on the page
     try:
-        download_selectors = [
-            "a:has-text('Saekja'), a:has-text('saekja')",
-            "a:has-text('Nidurhala'), a:has-text('nidurhala')",
-            "a:has-text('Download'), a:has-text('download')",
-            "a:has-text('PDF'), a:has-text('pdf')",
-            "button:has-text('Saekja'), button:has-text('Download')",
-            "[href*='.pdf']",
-        ]
-        for selector in download_selectors:
-            try:
-                elements = await page.query_selector_all(selector)
-                for el in elements:
-                    el_text = await el.inner_text()
-                    # Check if this download link is relevant to our year
-                    if str(year) in el_text or not el_text.strip():
-                        try:
-                            async with page.expect_download(timeout=PAGE_LOAD_TIMEOUT) as download_info:
-                                await el.click()
-                            download = await download_info.value
-                            await download.save_as(str(pdf_path))
-                            logger.info("Downloaded PDF via general download link: %s", pdf_path)
-                            return pdf_path
-                        except PlaywrightTimeout:
-                            continue
-            except Exception:
-                continue
+        await link.click()
+        await asyncio.sleep(1.5)
+        logger.info("Added to cart: kennitala=%s year=%d", kennitala, year)
     except Exception as exc:
-        logger.debug("General download strategy failed: %s", exc)
+        logger.error("Failed to click Kaupa: %s", exc)
+        return None
 
-    # Strategy 4: Try constructing a direct URL with the report number
-    if report_number:
-        direct_url_patterns = [
-            f"https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/{report_number}",
-            f"https://www.skatturinn.is/library/Arsreikningar/{report_number}.pdf",
-            f"https://www.skatturinn.is/arsreikningaskra/skodarskyrslur/{report_number}",
-        ]
-        for url in direct_url_patterns:
-            try:
-                logger.debug("Trying direct URL: %s", url)
-                response = await page.request.get(url)
-                if response.ok:
-                    content_type = response.headers.get("content-type", "")
-                    if "pdf" in content_type.lower() or "octet-stream" in content_type.lower():
-                        body = await response.body()
-                        pdf_path.write_bytes(body)
-                        logger.info("Downloaded PDF via direct URL: %s -> %s", url, pdf_path)
-                        return pdf_path
-                    else:
-                        logger.debug("URL %s returned non-PDF content-type: %s", url, content_type)
-            except Exception as exc:
-                logger.debug("Direct URL %s failed: %s", url, exc)
+    # Step 2: Navigate to cart
+    try:
+        cart_link = await page.query_selector('a:has-text("Karfa")')
+        if not cart_link:
+            logger.error("Cart link not found")
+            return None
+        await cart_link.click()
+        await page.wait_for_load_state("networkidle", timeout=PAGE_LOAD_TIMEOUT)
+        await asyncio.sleep(2)
+    except Exception as exc:
+        logger.error("Failed to navigate to cart: %s", exc)
+        return None
 
-    logger.warning(
-        "Could not download PDF for kennitala=%s, year=%d (report_number=%s). "
-        "The download mechanism may require manual investigation.",
-        kennitala, year, report_number,
-    )
-    return None
+    # Step 3: Click "Áfram" (Continue)
+    try:
+        afram = await page.query_selector('input[value="Áfram"]')
+        if not afram:
+            logger.error("Áfram button not found in cart")
+            return None
+        await afram.click()
+        await page.wait_for_load_state("networkidle", timeout=PAGE_LOAD_TIMEOUT)
+        await asyncio.sleep(3)
+    except Exception as exc:
+        logger.error("Failed to click Áfram: %s", exc)
+        return None
+
+    # Step 4: Navigate to "Sækja" tab and click download
+    try:
+        # The confirmation page has tabs: Vörurnar, Ljúting, Verð, Sækja
+        # Click the Sækja tab first
+        saekja_tab = await page.query_selector('a:has-text("Sækja"), [href*="Saekja"], td:has-text("Sækja")')
+        if saekja_tab and await saekja_tab.is_visible():
+            await saekja_tab.click()
+            await asyncio.sleep(3)
+
+        # Now look for the actual download button/link
+        download_btn = await page.query_selector('a.download-button, a:has-text("Sækja"), input[value*="Sækja"]')
+        if not download_btn:
+            # Try all visible links
+            links = await page.query_selector_all('a')
+            for link in links:
+                text = (await link.inner_text()).strip()
+                vis = await link.is_visible()
+                href = await link.get_attribute('href') or ''
+                if vis and ('sækja' in text.lower() or 'download' in href.lower()):
+                    download_btn = link
+                    break
+
+        if not download_btn:
+            logger.error("Download button not found")
+            await _save_debug_screenshot(page, kennitala, output_dir)
+            return None
+
+        async with page.expect_download(timeout=PAGE_LOAD_TIMEOUT) as dl_info:
+            await download_btn.click()
+        download = await dl_info.value
+        await download.save_as(str(pdf_path))
+        logger.info("Downloaded: %s (%d bytes)", pdf_path, pdf_path.stat().st_size)
+    except PlaywrightTimeout:
+        logger.error("Download timeout for kennitala=%s year=%d", kennitala, year)
+        await _save_debug_screenshot(page, kennitala, output_dir)
+        return None
+    except Exception as exc:
+        logger.error("Download failed for kennitala=%s year=%d: %s", kennitala, year, exc)
+        return None
+
+    # Step 5: Navigate back to company page for next report
+    try:
+        await page.goto(
+            f"{SKATTURINN_BASE_URL}/{kennitala}",
+            wait_until="networkidle",
+            timeout=PAGE_LOAD_TIMEOUT,
+        )
+        # Re-expand arsreikningar section
+        toggle = await page.query_selector('text="Gögn úr ársreikningaskrá"')
+        if toggle:
+            await toggle.click()
+            await asyncio.sleep(2)
+    except Exception:
+        logger.debug("Could not navigate back to company page")
+
+    return pdf_path
 
 
 async def _scrape_single_company(
