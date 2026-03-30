@@ -78,6 +78,24 @@ def match_employer_to_company(employer_name: str) -> Optional[int]:
             conn.close()
             return company_row["id"]
 
+    # Strategy 4: Containment match (one name contains the other)
+    # Handles "Reykjavíkurborg - Velferðarsvið" -> "Reykjavíkurborg"
+    if len(normalized) >= 5:
+        cursor.execute("SELECT id, name FROM companies")
+        best_id = None
+        best_len = 0
+        for company_row in cursor.fetchall():
+            cn = normalize_company_name(company_row["name"])
+            cn_ascii = _strip_accents(cn)
+            # Check if company name is contained in employer name or vice versa
+            if len(cn) >= 5 and (cn in normalized_ascii or normalized_ascii in cn_ascii):
+                if len(cn) > best_len:
+                    best_len = len(cn)
+                    best_id = company_row["id"]
+        if best_id:
+            conn.close()
+            return best_id
+
     conn.close()
     return None
 

@@ -330,6 +330,110 @@ def scrape_starfatorg(dry_run: bool = False) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Tvinna.is (RSS feed — tech jobs)
+# ---------------------------------------------------------------------------
+
+TVINNA_RSS_URL = "https://tvinna.is/feed/"
+
+
+def parse_tvinna_job(entry: dict) -> JobListing:
+    """Convert a Tvinna RSS entry to a JobListing."""
+    title = entry.get("title", "")
+    link = entry.get("link", "")
+    description = entry.get("content_encoded") or entry.get("description") or ""
+    pub_date_raw = entry.get("pubDate") or entry.get("published") or ""
+
+    # Try to extract employer from content (usually mentioned in first paragraph)
+    employer = "Unknown"
+    if description:
+        # Common patterns: "at CompanyName", "hjá CompanyName", "Company is hiring"
+        import re
+        # Look for "Company — " at start or similar
+        for pattern in [
+            r'(?:at|hjá|@)\s+([A-Z][A-Za-z\s&.]+?)(?:\s+(?:is|er|we))',
+            r'^<p>([A-Z][A-Za-z\s&.]+?)\s+(?:is|are|er)',
+        ]:
+            m = re.search(pattern, description)
+            if m:
+                employer = m.group(1).strip()
+                break
+
+    # Extract source_id from URL
+    source_id = link.split("/")[-2] if link.endswith("/") else link.split("/")[-1]
+
+    # Parse date
+    posted_date = None
+    if pub_date_raw:
+        try:
+            from email.utils import parsedate_to_datetime
+            dt = parsedate_to_datetime(pub_date_raw)
+            posted_date = dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    return JobListing(
+        id=None,
+        source="tvinna",
+        source_id=source_id,
+        title=title,
+        employer_name=employer,
+        description_raw=description[:5000] if description else None,
+        source_url=link,
+        posted_date=posted_date,
+        is_active=True,
+    )
+
+
+def scrape_tvinna(dry_run: bool = False) -> list[str]:
+    """Scrape job listings from Tvinna.is RSS feed.
+    Returns a list of source_ids for all jobs seen."""
+    import xml.etree.ElementTree as ET
+
+    source_ids: list[str] = []
+
+    log.info("Tvinna: fetching RSS feed")
+    try:
+        resp = requests.get(TVINNA_RSS_URL, timeout=30)
+        resp.raise_for_status()
+    except Exception:
+        log.error("Tvinna: failed to fetch RSS feed", exc_info=True)
+        return source_ids
+
+    root = ET.fromstring(resp.content)
+    channel = root.find("channel")
+    if channel is None:
+        log.warning("Tvinna: no channel found in RSS")
+        return source_ids
+
+    items = channel.findall("item")
+    log.info("Tvinna: found %d items", len(items))
+
+    # Namespace for content:encoded
+    ns = {"content": "http://purl.org/rss/1.0/modules/content/"}
+
+    for item in items:
+        entry = {
+            "title": (item.findtext("title") or "").strip(),
+            "link": (item.findtext("link") or "").strip(),
+            "description": (item.findtext("description") or "").strip(),
+            "content_encoded": (item.findtext("content:encoded", namespaces=ns) or "").strip(),
+            "pubDate": (item.findtext("pubDate") or "").strip(),
+        }
+
+        listing = parse_tvinna_job(entry)
+        source_ids.append(listing.source_id)
+
+        if dry_run:
+            log.info("  [dry-run] %s @ %s", listing.title, listing.employer_name)
+        else:
+            save_job_listing(listing)
+            log.debug("  saved: %s @ %s", listing.title, listing.employer_name)
+
+    log.info("Tvinna: total %d jobs scraped", len(source_ids))
+    return source_ids
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -340,7 +444,7 @@ def main():
     )
     parser.add_argument(
         "--source",
-        choices=["alfred", "starfatorg", "all"],
+        choices=["alfred", "starfatorg", "tvinna", "all"],
         default="all",
         help="Which source(s) to scrape (default: all)",
     )
@@ -366,7 +470,7 @@ def main():
         init_db()
 
     sources_to_scrape = (
-        [args.source] if args.source != "all" else ["alfred", "starfatorg"]
+        [args.source] if args.source != "all" else ["alfred", "starfatorg", "tvinna"]
     )
 
     for source in sources_to_scrape:
@@ -375,6 +479,8 @@ def main():
                 active_ids = scrape_alfred(dry_run=args.dry_run)
             elif source == "starfatorg":
                 active_ids = scrape_starfatorg(dry_run=args.dry_run)
+            elif source == "tvinna":
+                active_ids = scrape_tvinna(dry_run=args.dry_run)
             else:
                 continue
 
