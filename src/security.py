@@ -32,7 +32,7 @@ SECURITY_HEADERS = {
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "img-src 'self' data:; "
+        "img-src 'self' data: https://alfredprod.imgix.net; "
         "font-src 'self' https://fonts.gstatic.com; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
