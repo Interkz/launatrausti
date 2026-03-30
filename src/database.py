@@ -104,6 +104,7 @@ class JobListing:
     salary_confidence: Optional[float] = None
     salary_details: Optional[str] = None
     extracted_at: Optional[str] = None
+    employer_logo: Optional[str] = None
     is_active: bool = True
 
 
@@ -267,6 +268,10 @@ def init_db():
             UNIQUE(source, source_id)
         )
     """)
+
+    # Add employer_logo column to job_listings
+    if not _column_exists(cursor, "job_listings", "employer_logo"):
+        cursor.execute("ALTER TABLE job_listings ADD COLUMN employer_logo TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS unions (
@@ -963,8 +968,8 @@ def save_job_listing(listing: JobListing) -> int:
              salary_text, salary_lower, salary_upper, benefits, union_name,
              languages, education_required, experience_years,
              estimated_salary, salary_source, salary_confidence, salary_details,
-             extracted_at, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             extracted_at, employer_logo, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (source, source_id) DO UPDATE SET
             title = excluded.title,
             employer_name = excluded.employer_name,
@@ -987,6 +992,7 @@ def save_job_listing(listing: JobListing) -> int:
             languages = excluded.languages,
             education_required = excluded.education_required,
             experience_years = excluded.experience_years,
+            employer_logo = COALESCE(excluded.employer_logo, job_listings.employer_logo),
             is_active = excluded.is_active,
             updated_at = datetime('now')
     """, (listing.source, listing.source_id, listing.title, listing.employer_name,
@@ -997,7 +1003,8 @@ def save_job_listing(listing: JobListing) -> int:
           listing.benefits, listing.union_name, listing.languages,
           listing.education_required, listing.experience_years,
           listing.estimated_salary, listing.salary_source, listing.salary_confidence,
-          listing.salary_details, listing.extracted_at, listing.is_active))
+          listing.salary_details, listing.extracted_at, listing.employer_logo,
+          listing.is_active))
 
     job_id = cursor.lastrowid
     conn.commit()
@@ -1086,6 +1093,44 @@ def get_active_jobs(
 def get_company_jobs(company_id: int) -> list[dict]:
     """Get active job listings for a specific company."""
     return get_active_jobs(company_id=company_id, limit=100)
+
+
+def get_job_by_id(job_id: int) -> Optional[dict]:
+    """Get a single job listing with company cross-reference data."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT jl.*,
+            c.name as company_name, c.isat_code, c.sector as company_sector,
+            c.kennitala as company_kennitala,
+            ar.avg_salary as company_avg_salary, ar.year as company_report_year,
+            ar.starfsmenn as company_employees, ar.tekjur as company_revenue
+        FROM job_listings jl
+        LEFT JOIN companies c ON jl.company_id = c.id
+        LEFT JOIN annual_reports ar ON c.id = ar.company_id
+            AND ar.year = (SELECT MAX(ar2.year) FROM annual_reports ar2 WHERE ar2.company_id = c.id)
+        WHERE jl.id = ?
+    """, (job_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_related_jobs(employer_name: str, exclude_id: int, limit: int = 5) -> list[dict]:
+    """Get other active jobs from the same employer."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, title, estimated_salary, salary_source, remote_policy,
+               employment_type, deadline, employer_logo
+        FROM job_listings
+        WHERE employer_name = ? AND id != ? AND is_active = 1
+        ORDER BY estimated_salary DESC NULLS LAST
+        LIMIT ?
+    """, (employer_name, exclude_id, limit))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def get_job_filter_options() -> dict:

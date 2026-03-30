@@ -93,10 +93,12 @@ def parse_alfred_job(raw: dict) -> JobListing:
             location_lat = location_lat or loc.get("latitude")
             location_lon = location_lon or loc.get("longitude")
 
-    # Source URL
-    brand_slug = brand.get("slug", "")
+    # Source URL — real format is alfred.is/starf/{job-slug}
     job_slug = raw.get("slug", "")
-    source_url = f"https://alfred.is/starf/{brand_slug}/{job_slug or job_id}" if brand_slug else f"https://alfred.is/starf/{job_id}"
+    source_url = f"https://alfred.is/starf/{job_slug}" if job_slug else f"https://alfred.is/starf/{job_id}"
+
+    # Employer logo from brand
+    employer_logo = brand.get("logo") or None
 
     # Dates
     deadline_raw = raw.get("deadline") or raw.get("applicationDeadline")
@@ -123,6 +125,7 @@ def parse_alfred_job(raw: dict) -> JobListing:
         posted_date=posted_date,
         deadline=deadline,
         salary_text=None,
+        employer_logo=employer_logo,
         is_active=True,
     )
 

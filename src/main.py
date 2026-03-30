@@ -385,6 +385,33 @@ async def api_occupation_detail(isco_code: str):
     return {"occupation": data}
 
 
+@app.get("/job/{job_id}", response_class=HTMLResponse)
+async def job_detail(request: Request, job_id: int):
+    """Job detail page with full description, salary breakdown, company cross-reference."""
+    job = database.get_job_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    related = database.get_related_jobs(job["employer_name"], job_id)
+
+    # Get industry benchmark if company is matched
+    benchmark = None
+    if job.get("company_id") and job.get("isat_code"):
+        benchmark = hagstofa.get_industry_benchmark(
+            job["isat_code"], job.get("company_report_year") or 2024
+        )
+
+    return templates.TemplateResponse(
+        "job_detail.html",
+        {
+            "request": request,
+            "job": job,
+            "related": related,
+            "benchmark": benchmark,
+        },
+    )
+
+
 @app.get("/stettarfelog", response_class=HTMLResponse)
 async def stettarfelog_page(
     request: Request,

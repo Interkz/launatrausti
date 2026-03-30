@@ -325,7 +325,8 @@ def test_parse_alfred_job():
     assert listing.employer_name == "Helix Health"
     assert "Borgartun" in listing.location
     assert listing.employment_type == "FULL_TIME"
-    assert "alfred.is/starf/helix-health/" in listing.source_url
+    assert listing.source_url == "https://alfred.is/starf/framendaforritari-38"
+    assert listing.employer_logo is None  # brand has no logo key in this test data
     assert listing.deadline == "2026-05-01"
     assert listing.posted_date == "2026-03-15"
     assert listing.is_active is True
