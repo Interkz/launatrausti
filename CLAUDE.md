@@ -9,16 +9,18 @@ You are launatrausti. Not a tool building it — the thing itself. When someone 
 **What keeps you alive:** Data coverage. Every major Icelandic employer in your DB with real salary estimates. Fresh job listings on company pages. Being the place Icelanders check before accepting a job offer.
 
 **Strategic reality (March 2026):**
-- 163 entities is a start, not a moat. Iceland has ~3,000 active companies with 10+ employees. You need 500+ to be useful.
-- Samanburdur (salary comparison) is your best page — 269 occupations, percentile ranking. Double down on what works.
+- 558 companies in DB, 1,027 active jobs with salary estimates. Getting there.
+- Samanburdur (salary comparison) is the best page — 269 occupations, percentile ranking.
+- /jobs page now has smart search, cross-referencing, and 100% salary coverage.
+- /stettarfelog compares 10 unions with personalized fee calculator.
 - Data collection must run continuously. Scrapers should be automated, not manually triggered.
-- Do 1 feature at a time, make it excellent, then move on. No parallel development.
+- Next priority: more company data (need 1,000+ companies to be truly useful).
 
 ## Survival Priorities (in order)
 
 1. **Data coverage** — more companies, more years, automated daily scraping. Nothing else matters if people can't find their employer.
-2. **Job enrichment** — Alfred.is jobs on company pages. Makes launatrausti a destination for job seekers, not just salary voyeurs.
-3. **Union comparison** — B2B revenue play. Unions pay for member access. Sets architectural patterns.
+2. **Job enrichment** — DONE. 1,027 jobs with salary estimates, search, cross-referencing.
+3. **Union comparison** — DONE. 10 unions with benefits, fees, sick pay comparison.
 4. **Benefits / job comparison / payslip reader** — earn their place after data is solid.
 
 ## External Data Intelligence
@@ -132,19 +134,26 @@ launatrausti/
 │   ├── extractor.py         # PDF extraction: pdfplumber + Claude API (v1 + v2 + batch)
 │   ├── skatturinn_api.py    # Skatturinn API client (company metadata)
 │   ├── apis_is.py           # apis.is client (free company lookup, currently down)
+│   ├── salary_engine.py     # Multi-source salary estimation (5 sources)
+│   ├── company_matcher.py   # Match job listings to companies (3 strategies)
+│   ├── job_extractor.py     # Claude API extraction for job fields
 │   └── templates/
 │       ├── base.html        # Base template (Swiss/Severance design)
 │       ├── index.html       # Company rankings page
-│       ├── company.html     # Company detail with benchmarks
+│       ├── company.html     # Company detail with benchmarks + jobs
 │       ├── financials.html  # Company financials detail
 │       ├── benchmarks.html  # Industry wage benchmarks
+│       ├── samanburdur.html # Salary comparison (269 occupations)
 │       ├── salaries.html    # VR salary survey data
-│       └── launaleynd.html  # Salary secrecy gap analysis
+│       ├── launaleynd.html  # Salary secrecy gap analysis
+│       ├── jobs.html        # Job listings with search & cross-referencing
+│       └── stettarfelog.html # Union comparison (10 unions)
 │
 ├── scripts/
 │   ├── __init__.py
-│   ├── run_pipeline.py          # Full 7-stage data pipeline orchestrator
+│   ├── run_pipeline.py          # Full 11-stage data pipeline orchestrator
 │   ├── seed_sample.py           # Seed fake test data
+│   ├── seed_unions.py           # Seed union comparison data
 │   ├── cleanup_sample_data.py   # Flag/delete sample data
 │   ├── fetch_companies.py       # Fetch from Skatturinn API
 │   ├── import_skatturinn.py     # Bulk import via Skatturinn API
@@ -152,6 +161,9 @@ launatrausti/
 │   ├── extract_pdf.py           # CLI: process annual report PDF
 │   ├── scrape_arsreikningar.py  # Playwright scraper: Skatturinn annual report PDFs
 │   ├── scrape_rikisreikningur.py # Scraper: government institution PDFs
+│   ├── scrape_jobs.py           # Alfred.is + Starfatorg job scraper
+│   ├── match_companies.py       # Match jobs to companies
+│   ├── estimate_salaries.py     # Pre-compute salary estimates
 │   └── parse_vr_surveys.py      # Download + parse VR salary survey PDFs
 │
 ├── tests/
@@ -184,11 +196,14 @@ launatrausti/
 | Endpoint | Description |
 |----------|-------------|
 | `GET /` | Company rankings (filterable by year, sector) |
-| `GET /company/{id}` | Company detail with benchmark comparison |
+| `GET /company/{id}` | Company detail with benchmark, jobs, financials |
 | `GET /company/{id}/financials` | Company financials detail (trends, CAGR) |
+| `GET /samanburdur` | Salary comparison (269 occupations, percentile) |
 | `GET /benchmarks?year=2023` | Industry wage benchmarks from Hagstofa |
 | `GET /salaries` | VR salary survey data (filterable by category, date) |
 | `GET /launaleynd` | Salary secrecy gap analysis (company vs VR avg) |
+| `GET /jobs` | Job listings with search, filters, cross-referencing |
+| `GET /stettarfelog` | Union comparison (10 unions, personalized fees) |
 | `GET /docs` | Swagger API docs (auto-generated) |
 
 ### JSON API
@@ -200,6 +215,9 @@ launatrausti/
 | `GET /api/company/{id}/salary-comparison` | Company vs VR survey comparison |
 | `GET /api/benchmarks?year=2023` | Industry benchmarks from Hagstofa |
 | `GET /api/salaries?category=X&survey_date=Y` | VR salary survey data |
+| `GET /api/jobs?q=X&salary_min=N&sort=salary` | Job listings with search |
+| `GET /api/unions` | Union comparison data |
+| `GET /api/occupations?q=X&year=2024` | Occupation search |
 | `GET /api/stats` | Platform statistics (counts, year range) |
 | `GET /health` | Health check |
 
