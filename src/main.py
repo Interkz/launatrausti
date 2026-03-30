@@ -132,7 +132,7 @@ async def company_detail(request: Request, company_id: int):
 
 
 @app.get("/benchmarks", response_class=HTMLResponse)
-async def benchmarks_page(request: Request, year: int = 2023):
+async def benchmarks_page(request: Request, year: int = 2024):
     """Industry wage benchmarks page."""
     benchmarks = hagstofa.get_all_benchmarks(year)
     national_avg = hagstofa.get_national_average(year)
