@@ -400,17 +400,28 @@ def extract_batch(
 
     conn = get_connection()
 
+    def _db_retry(fn, max_retries=5):
+        """Retry DB operations on lock errors."""
+        import time as _time
+        for attempt in range(max_retries):
+            try:
+                return fn()
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < max_retries - 1:
+                    _time.sleep(1 + attempt)
+                    continue
+                raise
+
     for i, pdf_path in enumerate(pdfs, 1):
         identifier = pdf_path.stem
         now = datetime.now()
 
         # Check if already extracted
         if skip_extracted and _is_already_extracted(conn, source_type, identifier, None):
-            print(f"Skipping {i}/{total}: {identifier} (already extracted)")
             continue
 
         # Log as running
-        save_scrape_log(ScrapeLogEntry(
+        _db_retry(lambda: save_scrape_log(ScrapeLogEntry(
             id=None,
             source=source_type,
             identifier=identifier,
@@ -420,7 +431,7 @@ def extract_batch(
             error_message=None,
             created_at=now,
             updated_at=now,
-        ))
+        )))
 
         try:
             data = extract_from_pdf_v2(pdf_path, api_key=api_key, source_type=source_type)
@@ -428,12 +439,12 @@ def extract_batch(
 
             # Save to database
             if data.kennitala:
-                company_id = get_or_create_company(
+                company_id = _db_retry(lambda: get_or_create_company(
                     kennitala=data.kennitala,
                     name=data.company_name,
-                )
+                ))
 
-                save_annual_report(
+                _db_retry(lambda: save_annual_report(
                     company_id=company_id,
                     year=data.year,
                     launakostnadur=data.launakostnadur,
@@ -445,7 +456,7 @@ def extract_batch(
                     eiginfjarhlufall=data.eiginfjarhlufall,
                     source_type=source_type,
                     confidence=data.confidence,
-                )
+                ))
 
             # Format amounts for display
             laun_m = data.launakostnadur / 1_000_000
@@ -453,7 +464,7 @@ def extract_batch(
                   f"-- {laun_m:,.0f}M laun, {data.starfsmenn:.0f} starfsmenn")
 
             # Log success
-            save_scrape_log(ScrapeLogEntry(
+            _db_retry(lambda: save_scrape_log(ScrapeLogEntry(
                 id=None,
                 source=source_type,
                 identifier=identifier,
@@ -463,25 +474,28 @@ def extract_batch(
                 error_message=None,
                 created_at=now,
                 updated_at=datetime.now(),
-            ))
+            )))
 
             results.append(data)
 
         except Exception as e:
             print(f"Failed {i}/{total}: {identifier} -- {e}")
 
-            # Log failure
-            save_scrape_log(ScrapeLogEntry(
-                id=None,
-                source=source_type,
-                identifier=identifier,
-                year=None,
-                status='failed',
-                pdf_path=str(pdf_path),
-                error_message=str(e),
-                created_at=now,
-                updated_at=datetime.now(),
-            ))
+            # Log failure (also with retry)
+            try:
+                _db_retry(lambda: save_scrape_log(ScrapeLogEntry(
+                    id=None,
+                    source=source_type,
+                    identifier=identifier,
+                    year=None,
+                    status='failed',
+                    pdf_path=str(pdf_path),
+                    error_message=str(e),
+                    created_at=now,
+                    updated_at=datetime.now(),
+                )))
+            except Exception:
+                pass  # Don't let log failures kill the batch
 
     conn.close()
     print(f"\nBatch complete: {extracted_count} extracted, "
