@@ -76,6 +76,17 @@ def _log_result(kennitala: str, year: int, status: str, pdf_path: str = None, er
         pass  # Don't let logging errors kill the scraper
 
 
+async def _accept_terms_if_needed(page) -> bool:
+    """Skatturinn redirects to /notkunarskilmalar/ on first visit. Accept and retry."""
+    if "notkunarskilmalar" in page.url:
+        link = await page.query_selector('a:has-text("Leit í fyrirtækjaskrá")')
+        if link:
+            await link.click()
+            await page.wait_for_load_state("networkidle", timeout=15000)
+            return True
+    return False
+
+
 async def extract_report_numbers(browser, kennitala: str, years: list[int]) -> list[dict]:
     """Use Playwright to render company page and extract report numbers + years.
     Returns list of {year, report_number, report_type}."""
@@ -84,6 +95,10 @@ async def extract_report_numbers(browser, kennitala: str, years: list[int]) -> l
 
     try:
         await page.goto(f"{SKATTURINN_BASE}/{kennitala}", wait_until="networkidle", timeout=30000)
+
+        # Handle terms page redirect
+        if await _accept_terms_if_needed(page):
+            await page.goto(f"{SKATTURINN_BASE}/{kennitala}", wait_until="networkidle", timeout=30000)
 
         # Expand arsreikningar section
         toggle = await page.query_selector('text="Gögn úr ársreikningaskrá"')
