@@ -388,27 +388,36 @@ async def api_occupation_detail(isco_code: str):
 @app.get("/jobs", response_class=HTMLResponse)
 async def jobs_page(
     request: Request,
+    q: Optional[str] = None,
     salary_min: Optional[int] = None,
     salary_max: Optional[int] = None,
     location: Optional[str] = None,
     employment_type: Optional[str] = None,
     remote_policy: Optional[str] = None,
     source: Optional[str] = None,
+    sort: str = "salary",
     limit: int = 50,
     offset: int = 0,
 ):
-    """Job listings page with filtering."""
+    """Job listings page with search, filtering, and cross-referencing."""
     jobs = database.get_active_jobs(
+        q=q,
         salary_min=salary_min,
         salary_max=salary_max,
         location=location,
         employment_type=employment_type,
         remote_policy=remote_policy,
         source=source,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
     stats = database.get_job_stats()
+    filter_options = database.get_job_filter_options()
+    total_count = database.get_job_count(
+        q=q, salary_min=salary_min, salary_max=salary_max,
+        location=location, employment_type=employment_type, source=source,
+    )
 
     return templates.TemplateResponse(
         "jobs.html",
@@ -416,12 +425,16 @@ async def jobs_page(
             "request": request,
             "jobs": jobs,
             "stats": stats,
+            "filter_options": filter_options,
+            "total_count": total_count,
+            "q": q,
             "salary_min": salary_min,
             "salary_max": salary_max,
             "location": location,
             "employment_type": employment_type,
             "remote_policy": remote_policy,
             "source": source,
+            "sort": sort,
             "limit": limit,
             "offset": offset,
         },
@@ -430,28 +443,36 @@ async def jobs_page(
 
 @app.get("/api/jobs")
 async def api_jobs(
+    q: Optional[str] = None,
     salary_min: Optional[int] = None,
     salary_max: Optional[int] = None,
     location: Optional[str] = None,
     employment_type: Optional[str] = None,
     remote_policy: Optional[str] = None,
     source: Optional[str] = None,
+    sort: str = "salary",
     limit: int = 50,
     offset: int = 0,
 ):
-    """JSON API for job listings."""
+    """JSON API for job listings with search and cross-referencing."""
     jobs = database.get_active_jobs(
+        q=q,
         salary_min=salary_min,
         salary_max=salary_max,
         location=location,
         employment_type=employment_type,
         remote_policy=remote_policy,
         source=source,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
     stats = database.get_job_stats()
-    return {"jobs": jobs, "stats": stats, "limit": limit, "offset": offset}
+    total = database.get_job_count(
+        q=q, salary_min=salary_min, salary_max=salary_max,
+        location=location, employment_type=employment_type, source=source,
+    )
+    return {"jobs": jobs, "stats": stats, "total": total, "limit": limit, "offset": offset}
 
 
 @app.get("/api/companies")

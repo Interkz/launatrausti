@@ -550,11 +550,13 @@ def test_estimate_salary_from_vr_survey(test_db, sample_vr_surveys):
         assert "Verkefnastjori" in result["details"]
 
 
-def test_estimate_salary_no_data(test_db):
-    """Returns None when no salary data is available."""
+def test_estimate_salary_fallback_national_avg(test_db):
+    """Falls back to national average when no specific salary data is available."""
     from src.salary_engine import estimate_job_salary
 
     with patch.object(db, "DB_PATH", test_db):
         job = {"salary_lower": None, "salary_upper": None, "company_id": None, "title": "xyzunknownjob123"}
         result = estimate_job_salary(job)
-        assert result["estimate"] is None
+        assert result["source"] == "national_avg"
+        assert result["estimate"] > 0
+        assert result["confidence"] == 0.2

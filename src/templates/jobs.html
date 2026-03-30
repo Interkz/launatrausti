@@ -2,19 +2,58 @@
 
 {% block title %}Storf — Launatrausti{% endblock %}
 
+{% block og_meta %}
+<meta property="og:title" content="Laus storf á Íslandi — Launatrausti">
+<meta property="og:description" content="{{ stats.active_jobs }} laus störf með launamati. Leitaðu, síaðu og berðu saman.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Launatrausti">
+<meta name="description" content="Laus störf á Íslandi með launamati úr ársreikningum, kjarakönnunum og Hagstofu. {{ stats.active_jobs }} störf frá Alfred.is og Starfatorgi.">
+{% endblock %}
+
 {% block content %}
-<div class="stats">
+<div style="margin-bottom: 1.5rem;">
+    <h1 style="font-family: var(--font-display); font-size: 2rem; color: var(--lumon-green); margin-bottom: 0.25rem;">Storf</h1>
+    <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">{{ total_count }} störf {% if q %}fyrir &ldquo;{{ q }}&rdquo;{% endif %}</p>
+</div>
+
+<!-- Search Bar -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div style="padding: 1.25rem 1.5rem;">
+        <form method="GET" action="/jobs" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <input type="text" name="q" value="{{ q or '' }}" placeholder="Leitaðu að starfi eða fyrirtæki..."
+                style="flex: 1; min-width: 240px; padding: 0.75rem 1rem; font-family: var(--font-sans); font-size: 1rem;
+                       border: 2px solid var(--lumon-green); background: var(--lumon-white); color: var(--lumon-black); outline: none;">
+            {% if sort != 'salary' %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+            {% if salary_min %}<input type="hidden" name="salary_min" value="{{ salary_min }}">{% endif %}
+            {% if salary_max %}<input type="hidden" name="salary_max" value="{{ salary_max }}">{% endif %}
+            {% if location %}<input type="hidden" name="location" value="{{ location }}">{% endif %}
+            {% if employment_type %}<input type="hidden" name="employment_type" value="{{ employment_type }}">{% endif %}
+            {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
+            <button type="submit"
+                style="padding: 0.75rem 2rem; font-family: var(--font-mono); font-size: 0.75rem;
+                       text-transform: uppercase; letter-spacing: 0.1em; background: var(--lumon-green);
+                       color: var(--lumon-white); border: none; cursor: pointer; white-space: nowrap;">Leita</button>
+        </form>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="stats" style="grid-template-columns: repeat(4, 1fr);">
     <div class="stat-card">
         <div class="label">Virk storf</div>
-        <div class="value">{{ "%02d"|format(stats.active_jobs) }}</div>
+        <div class="value">{{ "{:,}".format(stats.active_jobs).replace(",", ".") }}</div>
     </div>
     <div class="stat-card">
         <div class="label">Með launamat</div>
-        <div class="value">{{ "%02d"|format(stats.jobs_with_salary) }}</div>
+        <div class="value">{{ "{:,}".format(stats.jobs_with_salary).replace(",", ".") }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Tengd fyrirtækjum</div>
+        <div class="value">{{ "{:,}".format(stats.matched_jobs).replace(",", ".") }}</div>
     </div>
     <div class="stat-card">
         <div class="label">Heimildir</div>
-        <div class="value">{{ "%02d"|format(stats.job_sources|length) }}</div>
+        <div class="value">{{ stats.job_sources|length }}</div>
     </div>
 </div>
 
@@ -22,95 +61,204 @@
     <div>
         <div class="filter-sidebar">
             <div style="padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper);">
-                <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary);">Sía storf</div>
+                <div style="font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--lumon-text-secondary);">Sía störf</div>
             </div>
             <form method="GET" action="/jobs" style="display: contents;">
+                {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+                {% if sort != 'salary' %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+
+                <!-- Salary Range -->
                 <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--lumon-grid);">
                     <label style="font-family: var(--font-mono); font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--lumon-text-secondary); display: block; margin-bottom: 0.5rem;">Launabil (kr/mán)</label>
-                    <input type="number" name="salary_min" placeholder="Lágmark" value="{{ salary_min or '' }}" style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black); margin-bottom: 0.375rem;">
-                    <input type="number" name="salary_max" placeholder="Hámark" value="{{ salary_max or '' }}" style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
+                    <input type="number" name="salary_min" placeholder="Lágmark" value="{{ salary_min or '' }}" step="50000"
+                        style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black); margin-bottom: 0.375rem;">
+                    <input type="number" name="salary_max" placeholder="Hámark" value="{{ salary_max or '' }}" step="50000"
+                        style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
                 </div>
+
+                <!-- Location -->
                 <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--lumon-grid);">
                     <label style="font-family: var(--font-mono); font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--lumon-text-secondary); display: block; margin-bottom: 0.5rem;">Staðsetning</label>
-                    <input type="text" name="location" placeholder="Reykjavík..." value="{{ location or '' }}" style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
+                    <input type="text" name="location" placeholder="Reykjavík..." value="{{ location or '' }}"
+                        style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
                 </div>
-                <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--lumon-grid);">
-                    <button type="submit" style="width: 100%; font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em; padding: 0.5rem 1rem; background: var(--lumon-green); color: var(--lumon-white); border: none; cursor: pointer; transition: opacity 0.15s ease;">Sía</button>
+
+                <!-- Employment Type -->
+                {% if filter_options.employment_types %}
+                <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--lumon-grid);">
+                    <label style="font-family: var(--font-mono); font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--lumon-text-secondary); display: block; margin-bottom: 0.5rem;">Starfstegund</label>
+                    <select name="employment_type"
+                        style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
+                        <option value="">Allt</option>
+                        {% for et in filter_options.employment_types %}
+                        <option value="{{ et }}" {% if employment_type == et %}selected{% endif %}>{{ et }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <!-- Source -->
+                <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--lumon-grid);">
+                    <label style="font-family: var(--font-mono); font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--lumon-text-secondary); display: block; margin-bottom: 0.5rem;">Heimild</label>
+                    <select name="source"
+                        style="width: 100%; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.375rem 0.5rem; border: 1px solid var(--lumon-grid); background: var(--lumon-white); color: var(--lumon-black);">
+                        <option value="">Allt</option>
+                        {% for src in filter_options.sources %}
+                        <option value="{{ src }}" {% if source == src %}selected{% endif %}>{{ src }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="padding: 0.75rem 1.25rem;">
+                    <button type="submit" style="width: 100%; font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em; padding: 0.5rem 1rem; background: var(--lumon-green); color: var(--lumon-white); border: none; cursor: pointer;">Sía</button>
                 </div>
             </form>
-            <div style="padding: 0.625rem 1.25rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper);">
-                <div style="font-family: var(--font-mono); font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--lumon-text-secondary);">Heimild</div>
-            </div>
-            <a href="/jobs{% if location %}?location={{ location }}{% endif %}" {% if not source %}class="active"{% endif %}>Allt</a>
-            {% for src in stats.job_sources %}
-            <a href="/jobs?source={{ src }}{% if location %}&location={{ location }}{% endif %}" {% if source == src %}class="active"{% endif %}>{{ src }}</a>
-            {% endfor %}
+
+            {% if q or salary_min or salary_max or location or employment_type or source %}
+            <a href="/jobs" style="text-align: center; font-size: 0.625rem; padding: 0.5rem; border-top: 1px solid var(--lumon-grid);">Hreinsa síur</a>
+            {% endif %}
         </div>
     </div>
 
     <div>
+        <!-- Sort Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
+                {{ total_count }} störf
+                {% if salary_min %} &middot; &ge;{{ "{:,.0f}".format(salary_min).replace(",", ".") }} kr{% endif %}
+                {% if salary_max %} &middot; &le;{{ "{:,.0f}".format(salary_max).replace(",", ".") }} kr{% endif %}
+            </div>
+            <div style="display: flex; gap: 0; border: 1px solid var(--lumon-green);">
+                {% set base_q = "?" %}
+                {% if q %}{% set base_q = base_q ~ "q=" ~ q ~ "&" %}{% endif %}
+                {% if salary_min %}{% set base_q = base_q ~ "salary_min=" ~ salary_min ~ "&" %}{% endif %}
+                {% if salary_max %}{% set base_q = base_q ~ "salary_max=" ~ salary_max ~ "&" %}{% endif %}
+                {% if location %}{% set base_q = base_q ~ "location=" ~ location ~ "&" %}{% endif %}
+                {% if employment_type %}{% set base_q = base_q ~ "employment_type=" ~ employment_type ~ "&" %}{% endif %}
+                {% if source %}{% set base_q = base_q ~ "source=" ~ source ~ "&" %}{% endif %}
+                <a href="/jobs{{ base_q }}sort=salary" style="font-family: var(--font-mono); font-size: 0.625rem; padding: 0.375rem 0.75rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; border-right: 1px solid var(--lumon-green); {% if sort == 'salary' %}background: var(--lumon-green); color: var(--lumon-white);{% else %}color: var(--lumon-green);{% endif %}">Laun &#8595;</a>
+                <a href="/jobs{{ base_q }}sort=salary_asc" style="font-family: var(--font-mono); font-size: 0.625rem; padding: 0.375rem 0.75rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; border-right: 1px solid var(--lumon-green); {% if sort == 'salary_asc' %}background: var(--lumon-green); color: var(--lumon-white);{% else %}color: var(--lumon-green);{% endif %}">Laun &#8593;</a>
+                <a href="/jobs{{ base_q }}sort=date" style="font-family: var(--font-mono); font-size: 0.625rem; padding: 0.375rem 0.75rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; border-right: 1px solid var(--lumon-green); {% if sort == 'date' %}background: var(--lumon-green); color: var(--lumon-white);{% else %}color: var(--lumon-green);{% endif %}">Nýjast</a>
+                <a href="/jobs{{ base_q }}sort=deadline" style="font-family: var(--font-mono); font-size: 0.625rem; padding: 0.375rem 0.75rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; {% if sort == 'deadline' %}background: var(--lumon-green); color: var(--lumon-white);{% else %}color: var(--lumon-green);{% endif %}">Frestur</a>
+            </div>
+        </div>
+
+        <!-- Job Listings -->
         <div class="card">
             <div class="card-header">
-                <h2>Laus storf</h2>
-                <span class="source">{{ jobs|length }} storf</span>
+                <h2>Laus störf</h2>
+                <span class="source">{{ jobs|length }}{% if total_count > jobs|length %} af {{ total_count }}{% endif %} störf</span>
             </div>
 
             {% for job in jobs %}
-            <div style="padding: 1.25rem 2rem; border-bottom: 1px solid var(--lumon-grid); {% if loop.index is odd %}background: var(--lumon-white);{% else %}background: rgba(240, 240, 236, 0.5);{% endif %}">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+            <div style="padding: 1.25rem 2rem; border-bottom: 1px solid var(--lumon-grid); {% if loop.index is odd %}background: var(--lumon-white);{% else %}background: rgba(240, 240, 236, 0.5);{% endif %} transition: background 0.1s ease;" onmouseover="this.style.background='var(--lumon-paper)'" onmouseout="this.style.background='{% if loop.index is odd %}var(--lumon-white){% else %}rgba(240, 240, 236, 0.5){% endif %}'">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem;">
                     <div style="flex: 1;">
-                        <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--lumon-green); margin-bottom: 0.25rem;">
-                            {{ job.title }}
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                            <span style="font-family: var(--font-display); font-size: 1.1rem; color: var(--lumon-green);">
+                                {{ job.title }}
+                            </span>
+                            {% if job.employment_type %}
+                            <span class="badge badge-private">{{ job.employment_type }}</span>
+                            {% endif %}
                         </div>
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); margin-bottom: 0.5rem;">
-                            {{ job.employer_name }}{% if job.location %} · {{ job.location }}{% endif %}{% if job.employment_type %} · {{ job.employment_type }}{% endif %}
+                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); margin-bottom: 0.375rem;">
+                            {% if job.company_id %}
+                            <a href="/company/{{ job.company_id }}" style="color: var(--lumon-green-muted); text-decoration: none; border-bottom: 1px dotted var(--lumon-grid);">{{ job.employer_name }}</a>
+                            {% else %}
+                            {{ job.employer_name }}
+                            {% endif %}
+                            {% if job.location %} &middot; {{ job.location }}{% endif %}
+                            {% if job.source %} &middot; <span style="text-transform: capitalize;">{{ job.source }}</span>{% endif %}
                         </div>
+
                         {% if job.remote_policy %}
                         <span class="badge" style="background: var(--lumon-green); color: var(--lumon-white); font-size: 0.5625rem; border-color: var(--lumon-green);">{{ job.remote_policy }}</span>
                         {% endif %}
-                        {% if job.benefits %}
-                        {% for benefit in job.benefits.split(',') %}
-                        <span class="badge badge-private" style="margin-left: 0.25rem;">{{ benefit.strip() }}</span>
-                        {% endfor %}
+
+                        <!-- Company Cross-Reference Badge -->
+                        {% if job.company_avg_salary %}
+                        {% set monthly = job.company_avg_salary // 12 %}
+                        <span style="display: inline-block; margin-left: 0.25rem; font-family: var(--font-mono); font-size: 0.5625rem; padding: 0.125rem 0.5rem; border: 1px solid var(--gold-border); background: var(--gold-light); color: var(--gold);">
+                            Fyrirtæki: {{ "{:,.0f}".format(monthly).replace(",", ".") }} kr/mán avg ({{ job.company_report_year }})
+                            {% if job.company_employees %} &middot; {{ "{:,.0f}".format(job.company_employees).replace(",", ".") }} starfsm.{% endif %}
+                        </span>
                         {% endif %}
                     </div>
-                    <div style="text-align: right; min-width: 160px;">
+
+                    <div style="text-align: right; min-width: 140px;">
                         {% if job.estimated_salary %}
-                        <div class="salary" style="font-weight: 600; color: var(--lumon-green);">
+                        <div class="salary" style="font-weight: 600; font-size: 1.1rem; color: var(--lumon-green);">
                             {{ "{:,.0f}".format(job.estimated_salary).replace(",", ".") }} kr
                         </div>
-                        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
-                            {{ job.salary_details or job.salary_source or '' }}
+                        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.125rem;">
+                            {% if job.salary_source == 'company_avg' %}Ársreikn.
+                            {% elif job.salary_source == 'vr_survey' %}Kjarakönnun
+                            {% elif job.salary_source == 'hagstofa_occupation' %}Hagstofa
+                            {% elif job.salary_source == 'hagstofa' %}Atvinnugrein
+                            {% elif job.salary_source == 'job_listing' %}Auglýsing
+                            {% elif job.salary_source == 'national_avg' %}Landsmeðaltal
+                            {% else %}{{ job.salary_source or '' }}
+                            {% endif %}
+                            {% if job.salary_confidence %}
+                            <span style="opacity: 0.6;">&middot; {{ "{:.0f}".format(job.salary_confidence * 100) }}%</span>
+                            {% endif %}
                         </div>
                         {% else %}
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-grid);">—</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-grid);">&mdash;</div>
                         {% endif %}
                     </div>
                 </div>
-                <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+
+                <div style="margin-top: 0.625rem; display: flex; justify-content: space-between; align-items: center;">
                     <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary);">
                         {% if job.deadline %}Frestur: {{ job.deadline }}{% endif %}
+                        {% if job.posted_date and not job.deadline %}Birt: {{ job.posted_date }}{% endif %}
                     </div>
-                    {% if job.source_url %}
-                    <a href="{{ job.source_url }}" target="_blank" rel="noopener" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-green-muted); text-decoration: none; transition: color 0.15s ease;">Skoða &#8594;</a>
-                    {% endif %}
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        {% if job.company_id %}
+                        <a href="/company/{{ job.company_id }}" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--gold); text-decoration: none;">Fyrirtæki &#8594;</a>
+                        {% endif %}
+                        {% if job.source_url %}
+                        <a href="{{ job.source_url }}" target="_blank" rel="noopener" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-green-muted); text-decoration: none;">Skoða &#8594;</a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% else %}
-            <div style="padding: 4rem 2rem; text-align: center; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
-                Engin storf fundust — keyrðu <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/scrape_jobs.py</code> til að sækja störf
+            <div style="padding: 4rem 2rem; text-align: center;">
+                <div style="font-family: var(--font-display); font-size: 1.25rem; color: var(--lumon-green); margin-bottom: 0.5rem;">Engin störf fundust</div>
+                <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+                    {% if q or salary_min or salary_max or location %}
+                    Prófaðu að breyta leitarskilyrðunum eða <a href="/jobs" style="color: var(--lumon-green);">hreinsa síur</a>
+                    {% else %}
+                    Keyrðu <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/scrape_jobs.py</code> til að sækja störf
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
         </div>
 
-        {% if jobs|length >= limit %}
-        <div style="text-align: center; margin-top: -2rem; margin-bottom: 2rem;">
-            <a href="/jobs?offset={{ offset + limit }}{% if salary_min %}&salary_min={{ salary_min }}{% endif %}{% if salary_max %}&salary_max={{ salary_max }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if source %}&source={{ source }}{% endif %}" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-green); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em;">Sýna fleiri &#8594;</a>
+        <!-- Pagination -->
+        {% if total_count > limit %}
+        <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: -2rem; margin-bottom: 2rem;">
+            {% if offset > 0 %}
+            {% set prev_offset = [0, offset - limit]|max %}
+            <a href="/jobs?offset={{ prev_offset }}{% if q %}&q={{ q }}{% endif %}{% if salary_min %}&salary_min={{ salary_min }}{% endif %}{% if salary_max %}&salary_max={{ salary_max }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if employment_type %}&employment_type={{ employment_type }}{% endif %}{% if source %}&source={{ source }}{% endif %}{% if sort != 'salary' %}&sort={{ sort }}{% endif %}"
+                style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-green); text-decoration: none; padding: 0.5rem 1rem; border: 1px solid var(--lumon-green);">&#8592; Fyrri</a>
+            {% endif %}
+            <span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); padding: 0.5rem 1rem; display: flex; align-items: center;">
+                {{ offset + 1 }}&ndash;{{ [offset + limit, total_count]|min }} af {{ total_count }}
+            </span>
+            {% if offset + limit < total_count %}
+            <a href="/jobs?offset={{ offset + limit }}{% if q %}&q={{ q }}{% endif %}{% if salary_min %}&salary_min={{ salary_min }}{% endif %}{% if salary_max %}&salary_max={{ salary_max }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if employment_type %}&employment_type={{ employment_type }}{% endif %}{% if source %}&source={{ source }}{% endif %}{% if sort != 'salary' %}&sort={{ sort }}{% endif %}"
+                style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-green); text-decoration: none; padding: 0.5rem 1rem; border: 1px solid var(--lumon-green);">Næsta &#8594;</a>
+            {% endif %}
         </div>
         {% endif %}
 
-        <div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
-            Record Count: {{ jobs|length }} // Sort: Salary Descending // Offset: {{ offset }}
+        <div class="page-meta" style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
+            Gögn: Ársreikningar &middot; VR Launakönnun &middot; Hagstofa Íslands &middot; Alfred.is &middot; Starfatorg
         </div>
     </div>
 </div>

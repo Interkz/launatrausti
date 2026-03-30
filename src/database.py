@@ -984,16 +984,135 @@ def get_active_jobs(
     remote_policy: Optional[str] = None,
     source: Optional[str] = None,
     company_id: Optional[int] = None,
+    q: Optional[str] = None,
+    sort: str = "salary",
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
-    """Get active job listings with optional filters."""
+    """Get active job listings with optional filters and text search."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    where_clauses = ["jl.is_active = 1"]
+    params = []
+
+    if q:
+        where_clauses.append("(jl.title LIKE ? OR jl.employer_name LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
+
+    if salary_min is not None:
+        where_clauses.append("jl.estimated_salary >= ?")
+        params.append(salary_min)
+    if salary_max is not None:
+        where_clauses.append("jl.estimated_salary <= ?")
+        params.append(salary_max)
+    if location:
+        where_clauses.append("jl.location LIKE ?")
+        params.append(f"%{location}%")
+    if employment_type:
+        where_clauses.append("jl.employment_type = ?")
+        params.append(employment_type)
+    if remote_policy:
+        where_clauses.append("jl.remote_policy = ?")
+        params.append(remote_policy)
+    if source:
+        where_clauses.append("jl.source = ?")
+        params.append(source)
+    if company_id is not None:
+        where_clauses.append("jl.company_id = ?")
+        params.append(company_id)
+
+    where_sql = " AND ".join(where_clauses)
+    params.extend([limit, offset])
+
+    # Sort options
+    sort_clauses = {
+        "salary": "jl.estimated_salary IS NULL, jl.estimated_salary DESC",
+        "salary_asc": "jl.estimated_salary IS NULL, jl.estimated_salary ASC",
+        "date": "jl.posted_date IS NULL, jl.posted_date DESC",
+        "employer": "jl.employer_name ASC",
+        "deadline": "jl.deadline IS NULL, jl.deadline ASC",
+    }
+    order_by = sort_clauses.get(sort, sort_clauses["salary"])
+
+    cursor.execute(f"""
+        SELECT jl.*,
+            c.name as company_name, c.isat_code, c.sector as company_sector,
+            ar.avg_salary as company_avg_salary, ar.year as company_report_year,
+            ar.starfsmenn as company_employees
+        FROM job_listings jl
+        LEFT JOIN companies c ON jl.company_id = c.id
+        LEFT JOIN annual_reports ar ON c.id = ar.company_id
+            AND ar.year = (SELECT MAX(ar2.year) FROM annual_reports ar2 WHERE ar2.company_id = c.id)
+        WHERE {where_sql}
+        ORDER BY {order_by}, jl.posted_date DESC
+        LIMIT ? OFFSET ?
+    """, params)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_company_jobs(company_id: int) -> list[dict]:
+    """Get active job listings for a specific company."""
+    return get_active_jobs(company_id=company_id, limit=100)
+
+
+def get_job_filter_options() -> dict:
+    """Get distinct values for job filter dropdowns."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT DISTINCT employment_type FROM job_listings
+        WHERE is_active = 1 AND employment_type IS NOT NULL
+        ORDER BY employment_type
+    """)
+    employment_types = [r["employment_type"] for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT location, COUNT(*) as cnt FROM job_listings
+        WHERE is_active = 1 AND location IS NOT NULL AND location != ''
+        GROUP BY location
+        ORDER BY cnt DESC
+        LIMIT 20
+    """)
+    locations = [{"name": r["location"], "count": r["cnt"]} for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT DISTINCT source FROM job_listings
+        WHERE is_active = 1
+        ORDER BY source
+    """)
+    sources = [r["source"] for r in cursor.fetchall()]
+
+    conn.close()
+    return {
+        "employment_types": employment_types,
+        "locations": locations,
+        "sources": sources,
+    }
+
+
+def get_job_count(
+    q: Optional[str] = None,
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    location: Optional[str] = None,
+    employment_type: Optional[str] = None,
+    source: Optional[str] = None,
+) -> int:
+    """Get total count of jobs matching filters (for pagination)."""
     conn = get_connection()
     cursor = conn.cursor()
 
     where_clauses = ["is_active = 1"]
     params = []
 
+    if q:
+        where_clauses.append("(title LIKE ? OR employer_name LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
     if salary_min is not None:
         where_clauses.append("estimated_salary >= ?")
         params.append(salary_min)
@@ -1006,34 +1125,15 @@ def get_active_jobs(
     if employment_type:
         where_clauses.append("employment_type = ?")
         params.append(employment_type)
-    if remote_policy:
-        where_clauses.append("remote_policy = ?")
-        params.append(remote_policy)
     if source:
         where_clauses.append("source = ?")
         params.append(source)
-    if company_id is not None:
-        where_clauses.append("company_id = ?")
-        params.append(company_id)
 
     where_sql = " AND ".join(where_clauses)
-    params.extend([limit, offset])
-
-    cursor.execute(f"""
-        SELECT * FROM job_listings
-        WHERE {where_sql}
-        ORDER BY estimated_salary IS NULL, estimated_salary DESC, posted_date DESC
-        LIMIT ? OFFSET ?
-    """, params)
-
-    rows = cursor.fetchall()
+    cursor.execute(f"SELECT COUNT(*) as cnt FROM job_listings WHERE {where_sql}", params)
+    count = cursor.fetchone()["cnt"]
     conn.close()
-    return [dict(r) for r in rows]
-
-
-def get_company_jobs(company_id: int) -> list[dict]:
-    """Get active job listings for a specific company."""
-    return get_active_jobs(company_id=company_id, limit=100)
+    return count
 
 
 def get_unextracted_jobs(limit: int = 100) -> list[dict]:

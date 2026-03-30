@@ -41,6 +41,24 @@ def _jaccard(a: set, b: set) -> float:
     return len(a & b) / len(a | b)
 
 
+def _containment(a: set, b: set) -> float:
+    """Containment similarity — what fraction of the smaller set is in the larger.
+    Better than Jaccard for partial matches like 'forritari' in 'framendaforritari'."""
+    if not a or not b:
+        return 0.0
+    overlap = len(a & b)
+    return overlap / min(len(a), len(b))
+
+
+def _substring_match(title: str, vr_title: str) -> bool:
+    """Check if one title contains the other as a substring (accent-stripped)."""
+    a = unicodedata.normalize('NFKD', title.lower())
+    a = ''.join(c for c in a if not unicodedata.combining(c))
+    b = unicodedata.normalize('NFKD', vr_title.lower())
+    b = ''.join(c for c in b if not unicodedata.combining(c))
+    return b in a or a in b
+
+
 def estimate_job_salary(job: dict) -> dict:
     """Estimate salary for a job listing from available data.
 
@@ -84,7 +102,7 @@ def estimate_job_salary(job: dict) -> dict:
                 "details": f"company avg ({row['year']})",
             }
 
-    # Priority 3: VR survey (title matching)
+    # Priority 3: VR survey (title matching — multi-strategy)
     title = job.get("title", "")
     if title:
         title_tokens = _normalize_title(title)
@@ -95,20 +113,73 @@ def estimate_job_salary(job: dict) -> dict:
             """)
             best_match = None
             best_score = 0.0
+            best_method = ""
             for vr_row in cursor.fetchall():
                 vr_tokens = _normalize_title(vr_row["starfsheiti"])
-                score = _jaccard(title_tokens, vr_tokens)
-                if score > best_score:
-                    best_score = score
+                # Strategy 1: Jaccard (exact token overlap)
+                j_score = _jaccard(title_tokens, vr_tokens)
+                if j_score > best_score:
+                    best_score = j_score
                     best_match = vr_row
+                    best_method = "jaccard"
+                # Strategy 2: Containment (partial match)
+                c_score = _containment(title_tokens, vr_tokens) * 0.85
+                if c_score > best_score:
+                    best_score = c_score
+                    best_match = vr_row
+                    best_method = "containment"
+                # Strategy 3: Substring (one title inside another)
+                if _substring_match(title, vr_row["starfsheiti"]):
+                    sub_score = 0.7
+                    if sub_score > best_score:
+                        best_score = sub_score
+                        best_match = vr_row
+                        best_method = "substring"
 
-            if best_match and best_score >= 0.4:
+            if best_match and best_score >= 0.35:
                 conn.close()
                 return {
                     "estimate": best_match["medaltal"],
                     "source": "vr_survey",
                     "confidence": round(min(best_score, 0.8), 2),
                     "details": f"VR: {best_match['starfsheiti']}",
+                }
+
+    # Priority 3b: Hagstofa occupation data (269 occupations, title matching)
+    if title:
+        title_tokens = _normalize_title(title)
+        if title_tokens:
+            cursor.execute("""
+                SELECT occupation_name, median, mean FROM hagstofa_occupations
+                WHERE year = (SELECT MAX(year) FROM hagstofa_occupations)
+                AND median IS NOT NULL
+            """)
+            best_match = None
+            best_score = 0.0
+            for occ_row in cursor.fetchall():
+                occ_tokens = _normalize_title(occ_row["occupation_name"])
+                j_score = _jaccard(title_tokens, occ_tokens)
+                if j_score > best_score:
+                    best_score = j_score
+                    best_match = occ_row
+                c_score = _containment(title_tokens, occ_tokens) * 0.85
+                if c_score > best_score:
+                    best_score = c_score
+                    best_match = occ_row
+                if _substring_match(title, occ_row["occupation_name"]):
+                    sub_score = 0.65
+                    if sub_score > best_score:
+                        best_score = sub_score
+                        best_match = occ_row
+
+            if best_match and best_score >= 0.35:
+                estimate = best_match["median"] or best_match["mean"]
+                conn.close()
+                return {
+                    "estimate": estimate,
+                    "source": "hagstofa_occupation",
+                    "confidence": round(min(best_score * 0.8, 0.6), 2),
+                    "details": f"Hagstofa: {best_match['occupation_name']}",
                 }
 
     # Priority 4: Hagstofa industry average (if company has ISAT code)
@@ -131,6 +202,19 @@ def estimate_job_salary(job: dict) -> dict:
                         "confidence": 0.4,
                         "details": f"industry avg ({benchmark.industry_name}, {year})",
                     }
+
+    # Priority 5: National average as last resort
+    from . import hagstofa
+    for year in [2024, 2023]:
+        national = hagstofa.get_national_average(year)
+        if national:
+            conn.close()
+            return {
+                "estimate": national.monthly_wage,
+                "source": "national_avg",
+                "confidence": 0.2,
+                "details": f"national avg ({year})",
+            }
 
     conn.close()
     return {
