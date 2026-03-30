@@ -86,7 +86,7 @@ def parse_with_claude(text: str, api_key: Optional[str] = None) -> dict:
         text = text[:half] + "\n\n[...middle section truncated...]\n\n" + text[-half:]
 
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=1024,
         messages=[
             {
@@ -276,7 +276,7 @@ def parse_with_claude_v2(text: str, api_key: Optional[str] = None) -> dict:
         text = text[:half] + "\n\n[...middle section truncated...]\n\n" + text[-half:]
 
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=1024,
         messages=[
             {
@@ -319,6 +319,18 @@ def extract_from_pdf_v2(pdf_path: Path, api_key: Optional[str] = None, source_ty
         raise ValueError("Could not extract starfsmenn (employee count) from PDF")
     if not data.get("year"):
         raise ValueError("Could not extract year from PDF")
+
+    # Sanity check: if PDF states amounts in thousands ("þúsundum króna"),
+    # verify the model applied the multiplier. If avg salary < 200k ISK/year,
+    # the amounts were likely not scaled up.
+    _text_lower = text.lower()
+    in_thousands = "þúsundum króna" in _text_lower or "þús.kr" in _text_lower or "þús. kr" in _text_lower
+    if in_thousands and data["starfsmenn"] > 0:
+        avg = data["launakostnadur"] / data["starfsmenn"]
+        if avg < 200_000:  # < 200k ISK/year is impossibly low
+            for key in ("launakostnadur", "tekjur", "hagnadur", "rekstrarkostnadur"):
+                if data.get(key) is not None:
+                    data[key] = data[key] * 1000
 
     kennitala = data.get("kennitala")
     if not kennitala:
