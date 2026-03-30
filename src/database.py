@@ -432,6 +432,9 @@ def get_ranked_companies(
     if exclude_sample:
         where_clauses.append("(ar.is_sample = 0 OR ar.is_sample IS NULL)")
 
+    # Exclude budget line items with fewer than 3 employees
+    where_clauses.append("ar.starfsmenn >= 3")
+
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
     params.append(limit)
 
@@ -1269,19 +1272,20 @@ def deactivate_stale_jobs(source: str, active_source_ids: list[str]) -> int:
     cursor = conn.cursor()
     total = 0
 
-    # (a) Not in active source IDs list
+    # (a) Not in active source IDs list — but keep jobs with future deadlines
     if active_source_ids:
         placeholders = ",".join("?" * len(active_source_ids))
         cursor.execute(f"""
             UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
             WHERE source = ? AND source_id NOT IN ({placeholders})
             AND is_active = 1
+            AND (deadline IS NULL OR deadline < date('now'))
         """, [source] + active_source_ids)
     else:
-        # If no active IDs provided, deactivate all from this source
         cursor.execute("""
             UPDATE job_listings SET is_active = 0, updated_at = datetime('now')
             WHERE source = ? AND is_active = 1
+            AND (deadline IS NULL OR deadline < date('now'))
         """, (source,))
     total += cursor.rowcount
 

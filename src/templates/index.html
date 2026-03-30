@@ -1,35 +1,35 @@
 {% extends "base.html" %}
 
-{% block title %}Launatrausti - Icelandic Salary Rankings{% endblock %}
+{% block title %}Launatrausti - Launaskrá íslenskra fyrirtækja{% endblock %}
 
 {% block content %}
 {% if not has_real_data %}
 <div class="warning">
-    Data may include sample entries for demonstration purposes.
+    Gögn geta innihaldið sýnishorn til kynningar.
 </div>
 {% endif %}
 
 <div class="stats">
     <div class="stat-card">
-        <div class="label">Total Entities</div>
+        <div class="label">Fyrirtæki</div>
         <div class="value">{{ "%02d"|format(companies|length) }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Reporting Year</div>
-        <div class="value">{{ selected_year or 'Latest' }}</div>
+        <div class="label">Reikningsár</div>
+        <div class="value">{{ selected_year or 'Nýjast' }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Maximum Monthly Average</div>
+        <div class="label">Hæstu meðallaun</div>
         <div class="value">{% if companies %}{{ "{:,.0f}".format(companies[0].avg_salary // 12).replace(",", ".") }}<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span>{% else %}—{% endif %}</div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h2>Salary Registry</h2>
+        <h2>Launaskrá</h2>
         <div style="display: flex; gap: 1rem; align-items: center;">
             <div class="year-filter">
-                <a href="/?{% if selected_sector %}sector={{ selected_sector }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Latest</a>
+                <a href="/?{% if selected_sector %}sector={{ selected_sector }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Nýjast</a>
                 {% for year in years %}
                 <a href="/?year={{ year }}{% if selected_sector %}&sector={{ selected_sector }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
                 {% endfor %}
@@ -38,20 +38,20 @@
     </div>
     <div style="padding: 0.75rem 2rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper);">
         <div class="year-filter">
-            <a href="/?{% if selected_year %}year={{ selected_year }}{% endif %}" {% if not selected_sector %}class="active"{% endif %}>All</a>
-            <a href="/?sector=private{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'private' %}class="active"{% endif %}>Private</a>
-            <a href="/?sector=public{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'public' %}class="active"{% endif %}>Public</a>
+            <a href="/?{% if selected_year %}year={{ selected_year }}{% endif %}" {% if not selected_sector %}class="active"{% endif %}>Allt</a>
+            <a href="/?sector=private{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'private' %}class="active"{% endif %}>Einkageirinn</a>
+            <a href="/?sector=public{% if selected_year %}&year={{ selected_year }}{% endif %}" {% if selected_sector == 'public' %}class="active"{% endif %}>Opinbert</a>
         </div>
     </div>
     <table>
         <thead>
             <tr>
-                <th style="width: 80px;">Index</th>
-                <th>Entity Name</th>
-                <th>Monthly Avg</th>
-                <th>Annual Total</th>
-                <th style="text-align: right;">Headcount</th>
-                <th style="text-align: right; width: 100px;">Year</th>
+                <th style="width: 80px;">Nr.</th>
+                <th>Fyrirtæki</th>
+                <th>Meðallaun/mán.</th>
+                <th>Meðallaun/ár</th>
+                <th style="text-align: right;">Starfsmenn</th>
+                <th style="text-align: right; width: 100px;">Ár</th>
             </tr>
         </thead>
         <tbody>
@@ -78,6 +78,6 @@
 </div>
 
 <div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
-    Record Count: {{ companies|length }} // Sort: Descending by Average Salary
+    Fjöldi: {{ companies|length }} // Röðun: Hæstu meðallaun
 </div>
 {% endblock %}
