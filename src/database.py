@@ -268,6 +268,35 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS unions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            name_en TEXT,
+            federation TEXT,
+            website TEXT,
+            sector TEXT,
+            members INTEGER,
+            fee_pct REAL,
+            sick_fund_pct REAL,
+            holiday_fund_pct REAL,
+            education_fund_pct REAL,
+            rehab_fund_pct REAL,
+            employer_pension_pct REAL,
+            employee_pension_pct REAL,
+            sick_pay_pct REAL,
+            sick_pay_days INTEGER,
+            holiday_homes INTEGER,
+            education_grants INTEGER,
+            death_benefit INTEGER,
+            description TEXT,
+            benefits_summary TEXT,
+            wage_agreement_period TEXT,
+            min_wage INTEGER,
+            updated_at DATETIME DEFAULT (datetime('now'))
+        )
+    """)
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON annual_reports(year)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_annual_reports_avg_salary ON annual_reports(avg_salary DESC)")
@@ -1259,6 +1288,77 @@ def get_job_stats() -> dict:
         "jobs_with_salary": jobs_with_salary,
         "job_sources": job_sources,
     }
+
+
+def get_all_unions() -> list[dict]:
+    """Get all unions ordered by member count."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM unions ORDER BY members DESC NULLS LAST")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_union_by_id(union_id: int) -> Optional[dict]:
+    """Get a single union by ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM unions WHERE id = ?", (union_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def save_union(data: dict) -> int:
+    """Insert or update union (UPSERT on name)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO unions (name, name_en, federation, website, sector, members,
+            fee_pct, sick_fund_pct, holiday_fund_pct, education_fund_pct,
+            rehab_fund_pct, employer_pension_pct, employee_pension_pct,
+            sick_pay_pct, sick_pay_days, holiday_homes, education_grants,
+            death_benefit, description, benefits_summary, wage_agreement_period,
+            min_wage, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT (name) DO UPDATE SET
+            name_en = excluded.name_en,
+            federation = excluded.federation,
+            website = excluded.website,
+            sector = excluded.sector,
+            members = excluded.members,
+            fee_pct = excluded.fee_pct,
+            sick_fund_pct = excluded.sick_fund_pct,
+            holiday_fund_pct = excluded.holiday_fund_pct,
+            education_fund_pct = excluded.education_fund_pct,
+            rehab_fund_pct = excluded.rehab_fund_pct,
+            employer_pension_pct = excluded.employer_pension_pct,
+            employee_pension_pct = excluded.employee_pension_pct,
+            sick_pay_pct = excluded.sick_pay_pct,
+            sick_pay_days = excluded.sick_pay_days,
+            holiday_homes = excluded.holiday_homes,
+            education_grants = excluded.education_grants,
+            death_benefit = excluded.death_benefit,
+            description = excluded.description,
+            benefits_summary = excluded.benefits_summary,
+            wage_agreement_period = excluded.wage_agreement_period,
+            min_wage = excluded.min_wage,
+            updated_at = datetime('now')
+    """, (data["name"], data.get("name_en"), data.get("federation"),
+          data.get("website"), data.get("sector"), data.get("members"),
+          data.get("fee_pct"), data.get("sick_fund_pct"),
+          data.get("holiday_fund_pct"), data.get("education_fund_pct"),
+          data.get("rehab_fund_pct"), data.get("employer_pension_pct"),
+          data.get("employee_pension_pct"), data.get("sick_pay_pct"),
+          data.get("sick_pay_days"), data.get("holiday_homes"),
+          data.get("education_grants"), data.get("death_benefit"),
+          data.get("description"), data.get("benefits_summary"),
+          data.get("wage_agreement_period"), data.get("min_wage")))
+    uid = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return uid
 
 
 # Initialize database on import

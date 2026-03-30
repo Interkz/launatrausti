@@ -385,6 +385,40 @@ async def api_occupation_detail(isco_code: str):
     return {"occupation": data}
 
 
+@app.get("/stettarfelog", response_class=HTMLResponse)
+async def stettarfelog_page(
+    request: Request,
+    my_salary: Optional[int] = None,
+    sort: str = "members",
+):
+    """Union comparison page."""
+    unions = database.get_all_unions()
+
+    # Sort options
+    if sort == "fee":
+        unions.sort(key=lambda u: u.get("fee_pct") or 0)
+    elif sort == "sick":
+        unions.sort(key=lambda u: u.get("sick_pay_days") or 0, reverse=True)
+    # default: members (already sorted from DB)
+
+    return templates.TemplateResponse(
+        "stettarfelog.html",
+        {
+            "request": request,
+            "unions": unions,
+            "my_salary": my_salary,
+            "sort": sort,
+        },
+    )
+
+
+@app.get("/api/unions")
+async def api_unions():
+    """JSON API for union data."""
+    unions = database.get_all_unions()
+    return {"unions": unions, "count": len(unions)}
+
+
 @app.get("/jobs", response_class=HTMLResponse)
 async def jobs_page(
     request: Request,
