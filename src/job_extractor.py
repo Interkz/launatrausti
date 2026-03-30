@@ -85,7 +85,7 @@ def extract_job_fields(description: str, api_key: Optional[str] = None) -> dict:
         clean_text = clean_text[:8000]
 
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[{"role": "user", "content": JOB_EXTRACTION_PROMPT + clean_text}],
     )
