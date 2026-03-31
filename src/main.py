@@ -5,6 +5,7 @@ FastAPI web application for viewing company salary rankings.
 """
 
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -292,6 +293,7 @@ async def samanburdur_page(
     isco: Optional[str] = None,
     group: Optional[str] = None,
     sort: str = "median",
+    order: str = "desc",
     year: int = 2024,
     my_salary: Optional[int] = None,
 ):
@@ -304,6 +306,8 @@ async def samanburdur_page(
         time_series = database.get_occupation_detail(isco)
         if time_series:
             selected = next((r for r in time_series if r["year"] == year), time_series[0])
+            selected["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', selected.get("occupation_name", ""))
+            selected["isco_code_clean"] = re.sub(r'[*\s]', '', selected.get("isco_code", ""))
 
     if q:
         search_results = database.search_occupations(q, year=year, limit=50)
@@ -312,38 +316,70 @@ async def samanburdur_page(
     grouped = database.get_all_occupations_grouped(year=year, sort_by=sort)
     available_years = database.get_occupation_years()
 
+    # Flat sorted list for the leaderboard
+    all_occupations = []
+    for grp_list in grouped.values():
+        all_occupations.extend(grp_list)
+    all_occupations.sort(key=lambda x: x.get(sort) or 0, reverse=(order != "asc"))
+    total_occupations = len(all_occupations)
+
+    # Add display_name (strip ISCO codes) and isco_group (first digit) for each occupation
+    for occ in all_occupations:
+        occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
+        occ["isco_group"] = occ.get("isco_code", "0")[0] if occ.get("isco_code") else "0"
+    for occ in search_results:
+        occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
+        occ["isco_group"] = occ.get("isco_code", "0")[0] if occ.get("isco_code") else "0"
+
+    # Max salary for mini-bar width calculation
+    max_salary = max((occ.get(sort) or 0) for occ in all_occupations) if all_occupations else 1
+    if max_salary == 0:
+        max_salary = 1
+
     # National median: use Hagstofa published figure (845K for 2024 full-time)
-    # This is the actual national median, not a derived mean-of-medians
     national_median = 845_000
 
-    # Salary percentile calculation
+    # Salary percentile calculation + nearby occupations
     percentile = None
-    salary_context = None
+    nearby_above = []
+    nearby_below = []
     if my_salary and my_salary > 0:
-        all_medians = []
-        for grp_list in grouped.values():
-            for occ in grp_list:
-                if occ.get("median"):
-                    all_medians.append(occ["median"])
+        all_medians = [occ.get("median") for occ in all_occupations if occ.get("median")]
         if all_medians:
             below = sum(1 for m in all_medians if m < my_salary)
             percentile = round(below / len(all_medians) * 100)
-            # Find closest occupations
-            closest_above = None
-            closest_below = None
-            for grp_list in grouped.values():
-                for occ in grp_list:
-                    med = occ.get("median", 0)
-                    if med and med >= my_salary and (closest_above is None or med < closest_above["median"]):
-                        closest_above = occ
-                    if med and med < my_salary and (closest_below is None or med > closest_below["median"]):
-                        closest_below = occ
-            salary_context = {
-                "percentile": percentile,
-                "above": closest_above,
-                "below": closest_below,
-                "total_occupations": len(all_medians),
-            }
+            # Find 3 occupations above and 3 below
+            above = [occ for occ in all_occupations if (occ.get("median") or 0) >= my_salary]
+            below_list = [occ for occ in all_occupations if (occ.get("median") or 0) < my_salary]
+            nearby_above = above[-3:] if above else []  # closest 3 above (lowest of the above)
+            nearby_above.reverse()  # highest first
+            nearby_below = below_list[:3] if below_list else []  # closest 3 below (highest of the below)
+
+    # 2025 estimates for occupation detail
+    estimated_2025 = None
+    if isco and time_series and len(time_series) >= 2:
+        # time_series is newest-first; compute avg YoY growth from last 3 years
+        growth_rates = []
+        for i in range(min(3, len(time_series) - 1)):
+            curr = time_series[i]
+            prev = time_series[i + 1]
+            if curr.get("median") and prev.get("median") and prev["median"] > 0:
+                rate = (curr["median"] - prev["median"]) / prev["median"]
+                growth_rates.append(rate)
+        if growth_rates:
+            avg_growth = sum(growth_rates) / len(growth_rates)
+            avg_growth = max(-0.15, min(0.15, avg_growth))  # cap at ±15%
+            latest = time_series[0]
+            if latest.get("median") and latest["year"] < 2025:
+                estimated_2025 = {
+                    "year": 2025,
+                    "median": round(latest["median"] * (1 + avg_growth)),
+                    "mean": round(latest["mean"] * (1 + avg_growth)) if latest.get("mean") else None,
+                    "p25": round(latest["p25"] * (1 + avg_growth)) if latest.get("p25") else None,
+                    "p75": round(latest["p75"] * (1 + avg_growth)) if latest.get("p75") else None,
+                    "growth_rate": avg_growth,
+                    "estimated": True,
+                }
 
     return templates.TemplateResponse(
         "samanburdur.html",
@@ -353,18 +389,24 @@ async def samanburdur_page(
             "isco": isco,
             "group": group,
             "sort": sort,
+            "order": order,
             "year": year,
             "my_salary": my_salary,
             "selected": selected,
             "time_series": time_series,
             "search_results": search_results,
             "grouped": grouped,
+            "all_occupations": all_occupations,
+            "total_occupations": total_occupations,
+            "max_salary": max_salary,
             "isco_groups": database.ISCO_MAJOR_GROUPS,
             "isco_groups_en": database.ISCO_MAJOR_GROUPS_EN,
             "available_years": available_years,
             "national_median": national_median,
             "percentile": percentile,
-            "salary_context": salary_context,
+            "nearby_above": nearby_above,
+            "nearby_below": nearby_below,
+            "estimated_2025": estimated_2025,
         }
     )
 

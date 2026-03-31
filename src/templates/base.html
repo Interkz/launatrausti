@@ -689,6 +689,219 @@
         .content-with-sidebar { display: grid; grid-template-columns: 200px 1fr; gap: 2rem; }
         @media (max-width: 900px) { .content-with-sidebar { grid-template-columns: 1fr; } }
 
+        /* ===== Reusable Component Library ===== */
+
+        /* Page Header */
+        .page-header { margin-bottom: 1.5rem; }
+        .page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--lumon-green); margin-bottom: 0.25rem; }
+        .page-header .page-subtitle { font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; }
+
+        /* Hero Input */
+        .hero-input { padding: 2rem; }
+        .hero-input form { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+        .hero-input__label { font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lumon-green); white-space: nowrap; }
+        .hero-input__field {
+            flex: 1; min-width: 180px; padding: 0.75rem 1rem;
+            font-family: var(--font-mono); font-size: 1.25rem; font-weight: 600;
+            border: 2px solid var(--lumon-green); background: var(--lumon-white); color: var(--lumon-black); outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .hero-input__field:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(196, 132, 29, 0.15); }
+        .hero-input__unit { font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary); }
+        .hero-input__submit {
+            padding: 0.75rem 2rem; font-family: var(--font-mono); font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            background: var(--lumon-green); color: var(--lumon-white); border: none; cursor: pointer; white-space: nowrap;
+            transition: background-color 0.15s ease;
+        }
+        .hero-input__submit:hover { background: var(--lumon-green-light); }
+
+        /* Percentile Result — two column */
+        .percentile-result {
+            display: flex; gap: 0; border: 1px solid rgba(26, 61, 46, 0.15);
+            background: var(--lumon-white); box-shadow: var(--shadow-card); margin-bottom: 2rem;
+        }
+        .percentile-result__salary {
+            flex: 1; padding: 2rem; display: flex; flex-direction: column; justify-content: center;
+            border-right: 1px solid rgba(26, 61, 46, 0.1);
+        }
+        .percentile-result__salary-label {
+            font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary);
+            text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.5rem;
+        }
+        .percentile-result__salary-value {
+            font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;
+            color: var(--lumon-green); line-height: 1;
+        }
+        .percentile-result__salary-unit {
+            font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary);
+            font-weight: 400; margin-left: 0.25rem;
+        }
+        .percentile-result__percentile {
+            font-size: 1rem; color: var(--lumon-black); margin-top: 0.75rem; font-weight: 500;
+        }
+        .percentile-result__percentile strong { color: var(--salary-high); }
+        .percentile-result__source {
+            font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;
+        }
+        .percentile-result__leaderboard { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .percentile-result__leaderboard-row {
+            padding: 0.625rem 1.25rem; display: flex; justify-content: space-between;
+            font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);
+            border-bottom: 1px solid rgba(26, 61, 46, 0.06);
+        }
+        .percentile-result__leaderboard-row:last-child { border-bottom: none; }
+        .percentile-result__leaderboard-row a {
+            color: var(--lumon-text-secondary); text-decoration: none; transition: color 0.15s ease;
+        }
+        .percentile-result__leaderboard-row a:hover { color: var(--lumon-green); }
+        .percentile-result__leaderboard-row--you {
+            background: rgba(26, 107, 60, 0.06); border-left: 4px solid var(--lumon-green);
+            font-weight: 700; color: var(--lumon-green);
+        }
+        .percentile-result__leaderboard-row--ellipsis {
+            color: var(--lumon-grid); padding: 0.375rem 1.25rem;
+        }
+
+        /* Flat Leaderboard */
+        .flat-leaderboard { margin-bottom: 2rem; }
+        .flat-leaderboard__row {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1.25rem;
+            border-bottom: 1px solid rgba(26, 61, 46, 0.06); transition: background-color 0.1s ease;
+        }
+        .flat-leaderboard__row:hover { background: var(--lumon-paper); }
+        .flat-leaderboard__rank {
+            font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);
+            width: 2rem; text-align: right; flex-shrink: 0;
+        }
+        .flat-leaderboard__name { flex: 1; }
+        .flat-leaderboard__name a {
+            color: var(--lumon-black); text-decoration: none; font-weight: 500; transition: color 0.15s ease;
+        }
+        .flat-leaderboard__name a:hover { color: var(--lumon-green); }
+        .flat-leaderboard__salary {
+            font-family: var(--font-mono); font-weight: 600; font-size: 0.9375rem; color: var(--salary-neutral);
+            flex-shrink: 0;
+        }
+        .flat-leaderboard__bar { width: 60px; height: 4px; background: var(--lumon-grid); flex-shrink: 0; }
+        .flat-leaderboard__bar-fill { height: 100%; background: var(--lumon-green); }
+        .flat-leaderboard__change {
+            font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600; flex-shrink: 0; width: 3.5rem; text-align: right;
+        }
+        .flat-leaderboard__change.positive { color: var(--salary-high); }
+        .flat-leaderboard__change.negative { color: var(--salary-low); }
+
+        /* Occupation Detail */
+        .occ-headline { padding: 2rem 2rem 1rem; }
+        .occ-headline__label {
+            font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary);
+            text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.5rem;
+        }
+        .occ-headline__value {
+            display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;
+        }
+        .occ-headline__number {
+            font-family: var(--font-display); font-size: 2.5rem; font-weight: 700; color: var(--lumon-green);
+        }
+        .occ-headline__unit { font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-text-secondary); }
+        .occ-headline__diff { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 600; }
+        .occ-headline__diff.positive { color: var(--salary-high); }
+        .occ-headline__diff.negative { color: var(--salary-low); }
+        .occ-headline__source {
+            font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); margin-top: 0.375rem;
+        }
+
+        /* Three-number stat row */
+        .stat-row { display: flex; border-top: 1px solid var(--lumon-grid); border-bottom: 1px solid var(--lumon-grid); }
+        .stat-row__item { flex: 1; padding: 1.25rem 2rem; border-right: 1px solid var(--lumon-grid); }
+        .stat-row__item:last-child { border-right: none; }
+        .stat-row__item--active { background: rgba(26, 61, 46, 0.02); }
+        .stat-row__label {
+            font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary);
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem;
+        }
+        .stat-row__item--active .stat-row__label { color: var(--lumon-green); }
+        .stat-row__value { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 600; color: var(--lumon-text-secondary); }
+        .stat-row__item--active .stat-row__value { color: var(--lumon-green); }
+
+        /* Trend table */
+        .trend-table { padding: 1.5rem 2rem; }
+        .trend-table__label {
+            font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary);
+            text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.75rem;
+        }
+        .trend-table__row {
+            display: flex; align-items: baseline; padding: 0.5rem 0;
+            font-family: var(--font-mono); font-size: 0.8125rem;
+            border-bottom: 1px solid rgba(26, 61, 46, 0.06);
+        }
+        .trend-table__row:last-child { border-bottom: none; }
+        .trend-table__row--estimate { background: rgba(26, 61, 46, 0.03); padding: 0.5rem 0.5rem; margin: 0 -0.5rem; }
+        .trend-table__year { width: 3rem; color: var(--lumon-text-secondary); }
+        .trend-table__salary { color: var(--lumon-black); }
+        .trend-table__salary--estimate { font-style: italic; }
+        .trend-table__change { font-weight: 600; margin-left: 0.5rem; }
+        .trend-table__change.positive { color: var(--salary-high); }
+        .trend-table__change.negative { color: var(--salary-low); }
+        .trend-table__note { font-size: 0.625rem; color: var(--lumon-text-secondary); margin-left: 0.375rem; }
+
+        /* Filter Controls */
+        .filter-controls { padding: 1.25rem; display: flex; gap: 0.5rem; }
+        .filter-controls__input {
+            flex: 1; padding: 0.5rem 0.75rem; font-family: var(--font-mono); font-size: 0.8rem;
+            border: 1px solid var(--lumon-green); background: var(--lumon-white); color: var(--lumon-black); outline: none;
+        }
+        .filter-controls__input:focus { border-color: var(--gold); }
+        .filter-controls__btn {
+            padding: 0.5rem 1.25rem; font-family: var(--font-mono); font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            background: var(--lumon-green); color: var(--lumon-white); border: none; cursor: pointer;
+        }
+
+        /* Sort Toggle */
+        .sort-toggle { display: flex; border: 1px solid var(--lumon-green); }
+        .sort-toggle__option {
+            padding: 0.5rem 0.75rem; font-family: var(--font-mono); font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.1em; text-decoration: none; display: inline-block;
+            color: var(--lumon-green); background: transparent; border-right: 1px solid var(--lumon-green);
+            transition: all 0.15s ease;
+        }
+        .sort-toggle__option:last-child { border-right: none; }
+        .sort-toggle__option.active, .sort-toggle__option:hover { background: var(--lumon-green); color: var(--lumon-white); }
+
+        /* Group Color Dots */
+        .group-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; vertical-align: middle; margin-right: 0.25rem; }
+        .group-dot--1 { background: #5B7553; }
+        .group-dot--2 { background: #4A7B9D; }
+        .group-dot--3 { background: #7B6B8D; }
+        .group-dot--4 { background: #8B7355; }
+        .group-dot--5 { background: #C4841D; }
+        .group-dot--6 { background: #6B8B6B; }
+        .group-dot--7 { background: #6B8F71; }
+        .group-dot--8 { background: #7A8B8B; }
+        .group-dot--9 { background: #A0A09C; }
+        .group-dot--0 { background: var(--lumon-grid); }
+
+        /* Source Attribution */
+        .source-attribution { margin-top: 1.5rem; padding: 1rem; background: var(--lumon-paper); border: 1px solid var(--lumon-grid); }
+        .source-attribution p { color: var(--lumon-text-secondary); font-family: var(--font-mono); font-size: 0.6875rem; }
+        .source-attribution a { color: var(--lumon-accent); }
+
+        /* Mobile overrides for new components */
+        @media (max-width: 900px) {
+            .percentile-result { flex-direction: column; }
+            .percentile-result__salary { border-right: none; border-bottom: 1px solid rgba(26, 61, 46, 0.1); padding: 1.5rem; }
+            .percentile-result__salary-value { font-size: 2rem; }
+            .percentile-result__leaderboard { padding: 0; }
+            .hero-input__field { font-size: 1.1rem; min-width: 140px; }
+            .stat-row { flex-direction: column; }
+            .stat-row__item { border-right: none; border-bottom: 1px solid var(--lumon-grid); padding: 1rem 1.5rem; }
+            .stat-row__item:last-child { border-bottom: none; }
+            .flat-leaderboard__bar { display: none; }
+            .flat-leaderboard__change { display: none; }
+            .occ-headline__number { font-size: 2rem; }
+        }
+
         /* Print styles */
         @media print {
             body::before {
@@ -707,15 +920,15 @@
             <div class="header-top">
                 <div class="logo-section">
                     <h1>Launatrausti</h1>
-                    <span class="header-subtitle">Icelandic Salary Transparency</span>
+                    <span class="header-subtitle">Launagagnagrunnur Íslands</span>
                 </div>
-                <span class="header-id">Est. 2024 // Public Data Initiative</span>
+                <span class="header-id">Stofnað 2024 // Opinber gögn</span>
             </div>
             <nav>
-                <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Rankings</a>
-                <a href="/benchmarks" {% if '/benchmarks' in request.path %}class="active"{% endif %}>Industry Benchmarks</a>
+                <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Fyrirtæki</a>
+                <a href="/benchmarks" {% if '/benchmarks' in request.path %}class="active"{% endif %}>Atvinnugreinar</a>
                 <a href="/samanburdur" {% if '/samanburdur' in request.path %}class="active"{% endif %}>Samanburður</a>
-                <a href="/salaries" {% if '/salaries' in request.path %}class="active"{% endif %}>Salaries</a>
+                <a href="/salaries" {% if '/salaries' in request.path %}class="active"{% endif %}>Launakannanir</a>
                 <a href="/launaleynd" {% if '/launaleynd' in request.path %}class="active"{% endif %}>Launaleynd</a>
                 <a href="/jobs" {% if '/jobs' in request.path %}class="active"{% endif %}>Storf</a>
                 <a href="/stettarfelog" {% if '/stettarfelog' in request.path %}class="active"{% endif %}>Stéttarfélög</a>
