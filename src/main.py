@@ -296,6 +296,7 @@ async def samanburdur_page(
     order: str = "desc",
     year: int = 2024,
     my_salary: Optional[int] = None,
+    salary_type: str = "heildarlaun",
 ):
     """Salary comparison page — aurbjörg-style leaderboard sorted by salary."""
     selected = None
@@ -303,17 +304,17 @@ async def samanburdur_page(
     search_results = []
 
     if isco:
-        time_series = database.get_occupation_detail(isco)
+        time_series = database.get_occupation_detail(isco, salary_type=salary_type)
         if time_series:
             selected = next((r for r in time_series if r["year"] == year), time_series[0])
             selected["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', selected.get("occupation_name", ""))
             selected["isco_code_clean"] = re.sub(r'[*\s]', '', selected.get("isco_code", ""))
 
     if q:
-        search_results = database.search_occupations(q, year=year, limit=50)
+        search_results = database.search_occupations(q, year=year, limit=50, salary_type=salary_type)
 
     # Always load grouped data for the leaderboard view
-    grouped = database.get_all_occupations_grouped(year=year, sort_by=sort)
+    grouped = database.get_all_occupations_grouped(year=year, sort_by=sort, salary_type=salary_type)
     available_years = database.get_occupation_years()
 
     # Flat sorted list for the leaderboard
@@ -351,9 +352,9 @@ async def samanburdur_page(
             # Find 3 occupations above and 3 below
             above = [occ for occ in all_occupations if (occ.get("median") or 0) >= my_salary]
             below_list = [occ for occ in all_occupations if (occ.get("median") or 0) < my_salary]
-            nearby_above = above[-3:] if above else []  # closest 3 above (lowest of the above)
+            nearby_above = above[-10:] if above else []  # closest 10 above
             nearby_above.reverse()  # highest first
-            nearby_below = below_list[:3] if below_list else []  # closest 3 below (highest of the below)
+            nearby_below = below_list[:10] if below_list else []  # closest 10 below
 
     # 2025 estimates for occupation detail
     estimated_2025 = None
@@ -390,6 +391,7 @@ async def samanburdur_page(
             "group": group,
             "sort": sort,
             "order": order,
+            "salary_type": salary_type,
             "year": year,
             "my_salary": my_salary,
             "selected": selected,

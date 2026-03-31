@@ -869,6 +869,19 @@
         .sort-toggle__option:last-child { border-right: none; }
         .sort-toggle__option.active, .sort-toggle__option:hover { background: var(--lumon-green); color: var(--lumon-white); }
 
+        /* Scroll Wheel — barrel/revolver scroll for result leaderboard */
+        .scroll-wheel {
+            max-height: 280px;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .scroll-wheel::-webkit-scrollbar { display: none; }
+        .scroll-wheel .percentile-result__leaderboard-row { scroll-snap-align: center; }
+
         /* Group Color Dots */
         .group-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; vertical-align: middle; margin-right: 0.25rem; }
         .group-dot--1 { background: #5B7553; }

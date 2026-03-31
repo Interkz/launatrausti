@@ -227,7 +227,8 @@ def init_db():
             observation_count INTEGER,
             source TEXT DEFAULT 'hagstofa_vin02001',
             fetched_at DATETIME NOT NULL,
-            UNIQUE(isco_code, year)
+            salary_type TEXT DEFAULT 'heildarlaun',
+            UNIQUE(isco_code, year, salary_type)
         )
     """)
 
@@ -817,7 +818,7 @@ ISCO_MAJOR_GROUPS_EN = {
 }
 
 
-def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median") -> dict:
+def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median", salary_type: str = "heildarlaun") -> dict:
     """Get all occupations for a year, grouped by ISCO major category, sorted by sort_by."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -825,11 +826,11 @@ def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median") -> di
     order_col = sort_by if sort_by in ("mean", "median", "p75", "p25") else "median"
 
     cursor.execute(f"""
-        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count, salary_type
         FROM hagstofa_occupations
-        WHERE year = ? AND {order_col} IS NOT NULL
+        WHERE year = ? AND {order_col} IS NOT NULL AND salary_type = ?
         ORDER BY {order_col} DESC
-    """, (year,))
+    """, (year, salary_type))
 
     rows = cursor.fetchall()
     conn.close()
@@ -850,7 +851,7 @@ def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median") -> di
     return groups
 
 
-def search_occupations(query: str = "", year: int = 2024, limit: int = 20) -> list[dict]:
+def search_occupations(query: str = "", year: int = 2024, limit: int = 20, salary_type: str = "heildarlaun") -> list[dict]:
     """Search occupations by name. Returns matching occupations with salary stats."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -859,25 +860,25 @@ def search_occupations(query: str = "", year: int = 2024, limit: int = 20) -> li
         cursor.execute("""
             SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
             FROM hagstofa_occupations
-            WHERE occupation_name LIKE ? AND year = ?
+            WHERE occupation_name LIKE ? AND year = ? AND salary_type = ?
             ORDER BY mean DESC
             LIMIT ?
-        """, (f"%{query}%", year, limit))
+        """, (f"%{query}%", year, salary_type, limit))
     else:
         cursor.execute("""
             SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
             FROM hagstofa_occupations
-            WHERE year = ?
+            WHERE year = ? AND salary_type = ?
             ORDER BY mean DESC
             LIMIT ?
-        """, (year, limit))
+        """, (year, salary_type, limit))
 
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_occupation_detail(isco_code: str) -> list[dict]:
+def get_occupation_detail(isco_code: str, salary_type: str = "heildarlaun") -> list[dict]:
     """Get all years of data for a specific occupation."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -885,9 +886,9 @@ def get_occupation_detail(isco_code: str) -> list[dict]:
     cursor.execute("""
         SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
         FROM hagstofa_occupations
-        WHERE isco_code = ?
+        WHERE isco_code = ? AND salary_type = ?
         ORDER BY year DESC
-    """, (isco_code,))
+    """, (isco_code, salary_type))
 
     rows = cursor.fetchall()
     conn.close()
@@ -929,7 +930,8 @@ def save_hagstofa_occupation(
     isco_code: str, occupation_name: str, year: int,
     mean: int = None, median: int = None,
     p25: int = None, p75: int = None,
-    observation_count: int = None
+    observation_count: int = None,
+    salary_type: str = "heildarlaun"
 ) -> int:
     """Save or update a Hagstofa occupation record."""
     conn = get_connection()
@@ -938,9 +940,9 @@ def save_hagstofa_occupation(
     cursor.execute("""
         INSERT INTO hagstofa_occupations
             (isco_code, occupation_name, year, mean, median, p25, p75,
-             observation_count, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (isco_code, year) DO UPDATE SET
+             observation_count, salary_type, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (isco_code, year, salary_type) DO UPDATE SET
             occupation_name = excluded.occupation_name,
             mean = excluded.mean,
             median = excluded.median,
@@ -949,7 +951,7 @@ def save_hagstofa_occupation(
             observation_count = excluded.observation_count,
             fetched_at = excluded.fetched_at
     """, (isco_code, occupation_name, year, mean, median, p25, p75,
-          observation_count, datetime.now()))
+          observation_count, salary_type, datetime.now()))
 
     record_id = cursor.lastrowid
     conn.commit()

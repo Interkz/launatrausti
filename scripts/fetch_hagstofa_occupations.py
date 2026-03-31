@@ -42,7 +42,13 @@ def fetch_metadata():
     return resp.json()
 
 
-def fetch_batch(years: list[int]) -> dict:
+SALARY_TYPES = {
+    "0": "grunnlaun",      # Base salary
+    "3": "heildarlaun",    # Total compensation
+}
+
+
+def fetch_batch(years: list[int], salary_type_code: str = "3") -> dict:
     """Fetch occupation wage data for a batch of years."""
     url = f"{BASE_URL}/{TABLE}"
 
@@ -51,7 +57,7 @@ def fetch_batch(years: list[int]) -> dict:
             {"code": "Ár", "selection": {"filter": "item", "values": [str(y) for y in years]}},
             {"code": "Starf", "selection": {"filter": "all", "values": ["*"]}},
             {"code": "Kyn", "selection": {"filter": "item", "values": ["0"]}},  # All genders
-            {"code": "Laun og vinnutími", "selection": {"filter": "item", "values": ["3"]}},  # Heildarlaun fullvinnandi
+            {"code": "Laun og vinnutími", "selection": {"filter": "item", "values": [salary_type_code]}},
             {"code": "Eining", "selection": {"filter": "item", "values": list(STAT_CODES.keys())}},
         ],
         "response": {"format": "json-stat2"}
@@ -62,7 +68,7 @@ def fetch_batch(years: list[int]) -> dict:
     return resp.json()
 
 
-def parse_and_save(data: dict) -> int:
+def parse_and_save(data: dict, salary_type: str = "heildarlaun") -> int:
     """Parse JSON-stat2 response and save to database. Returns row count."""
     dims = data["dimension"]
     values = data["value"]
@@ -116,6 +122,7 @@ def parse_and_save(data: dict) -> int:
             p25=stats.get("p25"),
             p75=stats.get("p75"),
             observation_count=stats.get("count"),
+            salary_type=salary_type,
         )
         saved += 1
 
@@ -151,30 +158,34 @@ def main():
     batch_size = 6
     total_saved = 0
 
-    for i in range(0, len(all_years), batch_size):
-        batch_years = all_years[i:i + batch_size]
-        print(f"\nBatch {i // batch_size + 1}: years {batch_years}")
+    for st_code, st_name in SALARY_TYPES.items():
+        print(f"\n{'='*40}")
+        print(f"Fetching {st_name} (code={st_code})")
+        print(f"{'='*40}")
 
-        try:
-            data = fetch_batch(batch_years)
-            saved = parse_and_save(data)
-            total_saved += saved
-            print(f"  Saved {saved} records")
-        except requests.exceptions.HTTPError as e:
-            print(f"  API error: {e}")
-            if "Too many values" in str(e.response.text if hasattr(e, 'response') else ''):
-                print("  Reducing batch size...")
-                # Try one year at a time
-                for y in batch_years:
-                    try:
-                        data = fetch_batch([y])
-                        saved = parse_and_save(data)
-                        total_saved += saved
-                        print(f"    Year {y}: {saved} records")
-                    except Exception as e2:
-                        print(f"    Year {y} failed: {e2}")
-        except Exception as e:
-            print(f"  Error: {e}")
+        for i in range(0, len(all_years), batch_size):
+            batch_years = all_years[i:i + batch_size]
+            print(f"\n  Batch: years {batch_years}")
+
+            try:
+                data = fetch_batch(batch_years, salary_type_code=st_code)
+                saved = parse_and_save(data, salary_type=st_name)
+                total_saved += saved
+                print(f"  Saved {saved} records")
+            except requests.exceptions.HTTPError as e:
+                print(f"  API error: {e}")
+                if "Too many values" in str(e.response.text if hasattr(e, 'response') else ''):
+                    print("  Reducing batch size...")
+                    for y in batch_years:
+                        try:
+                            data = fetch_batch([y], salary_type_code=st_code)
+                            saved = parse_and_save(data, salary_type=st_name)
+                            total_saved += saved
+                            print(f"    Year {y}: {saved} records")
+                        except Exception as e2:
+                            print(f"    Year {y} failed: {e2}")
+            except Exception as e:
+                print(f"  Error: {e}")
 
     # Summary
     from src.database import get_connection

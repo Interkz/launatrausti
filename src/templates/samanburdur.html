@@ -97,6 +97,7 @@
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="salary_type" value="{{ salary_type }}">
             <input type="hidden" name="my_salary" id="salary-value" value="{{ my_salary or '' }}">
             <label class="hero-input__label">Mánaðarlaun þín:</label>
             <input type="text" inputmode="numeric" id="salary-display"
@@ -123,29 +124,23 @@
         </div>
         <div class="percentile-result__source">{{ total_occupations }} starfsstéttir · Hagstofa Íslands {{ year }}</div>
     </div>
-    <div class="percentile-result__leaderboard">
-        {% if nearby_above|length > 0 %}
-        <div class="percentile-result__leaderboard-row percentile-result__leaderboard-row--ellipsis">...</div>
-        {% endif %}
+    <div class="percentile-result__leaderboard scroll-wheel" id="scroll-wheel">
         {% for occ in nearby_above %}
         <div class="percentile-result__leaderboard-row">
-            <a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}">{{ occ.display_name }}</a>
+            <a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}&salary_type={{ salary_type }}">{{ occ.display_name }}</a>
             <span>{{ "{:,.0f}".format(occ.median).replace(",", ".") }}</span>
         </div>
         {% endfor %}
-        <div class="percentile-result__leaderboard-row percentile-result__leaderboard-row--you">
+        <div class="percentile-result__leaderboard-row percentile-result__leaderboard-row--you" id="scroll-you">
             <span>&rarr; Þú</span>
             <span>{{ "{:,.0f}".format(my_salary).replace(",", ".") }}</span>
         </div>
         {% for occ in nearby_below %}
         <div class="percentile-result__leaderboard-row">
-            <a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}">{{ occ.display_name }}</a>
+            <a href="/samanburdur?isco={{ occ.isco_code }}&year={{ year }}&salary_type={{ salary_type }}">{{ occ.display_name }}</a>
             <span>{{ "{:,.0f}".format(occ.median).replace(",", ".") }}</span>
         </div>
         {% endfor %}
-        {% if nearby_below|length > 0 %}
-        <div class="percentile-result__leaderboard-row percentile-result__leaderboard-row--ellipsis">...</div>
-        {% endif %}
     </div>
 </div>
 {% endif %}
@@ -157,14 +152,21 @@
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="salary_type" value="{{ salary_type }}">
             {% if my_salary %}<input type="hidden" name="my_salary" value="{{ my_salary }}">{% endif %}
             <input type="text" name="q" value="{{ q }}" placeholder="Leita að starfsstétt..." class="filter-controls__input">
             <button type="submit" class="filter-controls__btn">Leita</button>
         </form>
         <div class="sort-toggle">
-            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order=desc{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
+            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order={{ order }}&salary_type=heildarlaun{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
+               class="sort-toggle__option {% if salary_type != 'grunnlaun' %}active{% endif %}">Heildarlaun</a>
+            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order={{ order }}&salary_type=grunnlaun{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
+               class="sort-toggle__option {% if salary_type == 'grunnlaun' %}active{% endif %}">Grunnlaun</a>
+        </div>
+        <div class="sort-toggle">
+            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order=desc&salary_type={{ salary_type }}{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
                class="sort-toggle__option {% if order != 'asc' %}active{% endif %}">Hæst</a>
-            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order=asc{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
+            <a href="/samanburdur?year={{ year }}&sort={{ sort }}&order=asc&salary_type={{ salary_type }}{% if q %}&q={{ q }}{% endif %}{% if my_salary %}&my_salary={{ my_salary }}{% endif %}"
                class="sort-toggle__option {% if order == 'asc' %}active{% endif %}">Lægst</a>
         </div>
     </div>
@@ -239,6 +241,16 @@
     if (hidden.value) {
         display.value = formatISK(hidden.value);
     }
+})();
+
+// Auto-scroll the wheel to center "→ Þú"
+(function() {
+    var wheel = document.getElementById('scroll-wheel');
+    var you = document.getElementById('scroll-you');
+    if (!wheel || !you) return;
+    setTimeout(function() {
+        you.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }, 100);
 })();
 </script>
 
