@@ -829,6 +829,7 @@ def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median", salar
         SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count, salary_type
         FROM hagstofa_occupations
         WHERE year = ? AND {order_col} IS NOT NULL AND salary_type = ?
+            AND LENGTH(REPLACE(REPLACE(isco_code, '*', ''), ' ', '')) >= 4
         ORDER BY {order_col} DESC
     """, (year, salary_type))
 
@@ -861,6 +862,7 @@ def search_occupations(query: str = "", year: int = 2024, limit: int = 20, salar
             SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
             FROM hagstofa_occupations
             WHERE occupation_name LIKE ? AND year = ? AND salary_type = ?
+                AND LENGTH(REPLACE(REPLACE(isco_code, '*', ''), ' ', '')) >= 4
             ORDER BY mean DESC
             LIMIT ?
         """, (f"%{query}%", year, salary_type, limit))
@@ -869,6 +871,7 @@ def search_occupations(query: str = "", year: int = 2024, limit: int = 20, salar
             SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
             FROM hagstofa_occupations
             WHERE year = ? AND salary_type = ?
+                AND LENGTH(REPLACE(REPLACE(isco_code, '*', ''), ' ', '')) >= 4
             ORDER BY mean DESC
             LIMIT ?
         """, (year, salary_type, limit))
