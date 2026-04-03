@@ -22,15 +22,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src import database
 
 BASE_URL = "https://px.hagstofa.is/pxis/api/v1/is"
-TABLE = "Samfelag/launogtekjur/1_laun/1_laun/VIN02001.px"
+TABLE_VIN02001 = "Samfelag/launogtekjur/1_laun/1_laun/VIN02001.px"
+TABLE_VIN02004 = "Samfelag/launogtekjur/1_laun/1_laun/VIN02004.px"
 
-# Stat codes for the "Eining" dimension
+# Keep old name for backward compat
+TABLE = TABLE_VIN02001
+
+# Stat codes for VIN02001 "Eining" dimension
 STAT_CODES = {
     "0": "mean",       # Meðaltal
     "1": "p25",        # Neðri fjórðungsmörk
     "2": "median",     # Miðgildi
     "3": "p75",        # Efri fjórðungsmörk
     "4": "count",      # Fjöldi athugana
+}
+
+# Stat codes for VIN02004 "Eining" dimension (decile distributions)
+VIN02004_STAT_CODES = {
+    "1": "p10",        # 10%
+    "11": "p90",       # 90%
 }
 
 
@@ -129,12 +139,100 @@ def parse_and_save(data: dict, salary_type: str = "heildarlaun") -> int:
     return saved
 
 
+def fetch_vin02004_batch(years: list[int], salary_type_code: str = "3") -> dict:
+    """Fetch decile distribution data from VIN02004 for occupational classes."""
+    url = f"{BASE_URL}/{TABLE_VIN02004}"
+
+    # VIN02004 uses "Starfsstétt" (occupational class) instead of "Starf" (occupation)
+    # and "Launþegahópur" (employee group) instead of individual occupations
+    query = {
+        "query": [
+            {"code": "Ár", "selection": {"filter": "item", "values": [str(y) for y in years]}},
+            {"code": "Launþegahópur", "selection": {"filter": "item", "values": ["0"]}},  # Alls
+            {"code": "Starfsstétt", "selection": {"filter": "all", "values": ["*"]}},
+            {"code": "Kyn", "selection": {"filter": "item", "values": ["0"]}},  # All genders
+            {"code": "Laun og vinnutími", "selection": {"filter": "item", "values": [salary_type_code]}},
+            {"code": "Eining", "selection": {"filter": "item", "values": list(VIN02004_STAT_CODES.keys())}},
+        ],
+        "response": {"format": "json-stat2"}
+    }
+
+    resp = requests.post(url, json=query, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def parse_and_save_vin02004(data: dict, salary_type: str = "heildarlaun") -> int:
+    """Parse VIN02004 JSON-stat2 response and update p10/p90 in existing records."""
+    dims = data["dimension"]
+    values = data["value"]
+
+    year_dim = dims["Ár"]["category"]
+    occ_dim = dims["Starfsstétt"]["category"]
+    stat_dim = dims["Eining"]["category"]
+
+    year_codes = list(year_dim["index"].keys())
+    occ_codes = list(occ_dim["index"].keys())
+    occ_labels = occ_dim["label"]
+    stat_codes = list(stat_dim["index"].keys())
+
+    n_occ = len(occ_codes)
+    n_stat = len(stat_codes)
+
+    # VIN02004 uses occupational class codes (0-10), not ISCO codes
+    # Map class codes to ISCO major group codes
+    CLASS_TO_ISCO = {
+        "1": "1",   # Stjórnendur
+        "2": "2",   # Sérfræðingar
+        "3": "3",   # Tæknar og sérmenntað starfsfólk
+        "4": "4",   # Skrifstofufólk
+        "5": "5",   # Þjónustu-, sölu- og afgreiðslufólk
+        "6": "7",   # Iðnaðarmenn (ISCO 7)
+        "7": "8",   # Véla- og vélgæslufólk (ISCO 8)
+        "8": "9",   # Ósérhæft starfsfólk (ISCO 9)
+    }
+
+    updated = 0
+    conn = database.get_connection()
+    cursor = conn.cursor()
+
+    for y_idx, year_code in enumerate(year_codes):
+        year = int(year_code)
+        for o_idx, occ_code in enumerate(occ_codes):
+            stats = {}
+            for s_idx, stat_code in enumerate(stat_codes):
+                val_idx = y_idx * (n_occ * n_stat) + o_idx * n_stat + s_idx
+                if val_idx < len(values) and values[val_idx] is not None:
+                    stat_name = VIN02004_STAT_CODES.get(stat_code, stat_code)
+                    stats[stat_name] = int(values[val_idx] * 1000)
+
+            if not stats.get("p10") and not stats.get("p90"):
+                continue
+
+            # Update matching hagstofa_occupations rows where isco_code starts with the major group
+            isco_prefix = CLASS_TO_ISCO.get(occ_code)
+            if isco_prefix:
+                cursor.execute("""
+                    UPDATE hagstofa_occupations
+                    SET p10 = ?, p90 = ?
+                    WHERE isco_code LIKE ? AND year = ? AND salary_type = ?
+                """, (stats.get("p10"), stats.get("p90"),
+                      f"{isco_prefix}%", year, salary_type))
+                updated += cursor.rowcount
+
+    conn.commit()
+    conn.close()
+    return updated
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch Hagstofa occupation wage data")
     parser.add_argument("--years", type=str, default=None,
                         help="Comma-separated years (default: 2014-2024)")
     parser.add_argument("--metadata", action="store_true",
                         help="Print table metadata and exit")
+    parser.add_argument("--vin02004-only", action="store_true",
+                        help="Only fetch VIN02004 decile data (p10/p90)")
     args = parser.parse_args()
 
     if args.metadata:
@@ -152,15 +250,45 @@ def main():
 
     print(f"Fetching occupation data for {len(all_years)} years: {all_years}")
 
-    # PX-Web has a ~10K values per request limit
-    # With ~250 occupations × 5 stats = ~1,250 per year
-    # Safe batch size: ~7 years per request
     batch_size = 6
     total_saved = 0
 
+    if not args.vin02004_only:
+        # Phase 1: Fetch VIN02001 (occupation-level data: mean, median, p25, p75)
+        for st_code, st_name in SALARY_TYPES.items():
+            print(f"\n{'='*40}")
+            print(f"VIN02001: Fetching {st_name} (code={st_code})")
+            print(f"{'='*40}")
+
+            for i in range(0, len(all_years), batch_size):
+                batch_years = all_years[i:i + batch_size]
+                print(f"\n  Batch: years {batch_years}")
+
+                try:
+                    data = fetch_batch(batch_years, salary_type_code=st_code)
+                    saved = parse_and_save(data, salary_type=st_name)
+                    total_saved += saved
+                    print(f"  Saved {saved} records")
+                except requests.exceptions.HTTPError as e:
+                    print(f"  API error: {e}")
+                    if "Too many values" in str(e.response.text if hasattr(e, 'response') else ''):
+                        print("  Reducing batch size...")
+                        for y in batch_years:
+                            try:
+                                data = fetch_batch([y], salary_type_code=st_code)
+                                saved = parse_and_save(data, salary_type=st_name)
+                                total_saved += saved
+                                print(f"    Year {y}: {saved} records")
+                            except Exception as e2:
+                                print(f"    Year {y} failed: {e2}")
+                except Exception as e:
+                    print(f"  Error: {e}")
+
+    # Phase 2: Fetch VIN02004 (occupational class deciles: p10, p90)
+    total_decile_updated = 0
     for st_code, st_name in SALARY_TYPES.items():
         print(f"\n{'='*40}")
-        print(f"Fetching {st_name} (code={st_code})")
+        print(f"VIN02004: Fetching {st_name} deciles (p10/p90)")
         print(f"{'='*40}")
 
         for i in range(0, len(all_years), batch_size):
@@ -168,24 +296,14 @@ def main():
             print(f"\n  Batch: years {batch_years}")
 
             try:
-                data = fetch_batch(batch_years, salary_type_code=st_code)
-                saved = parse_and_save(data, salary_type=st_name)
-                total_saved += saved
-                print(f"  Saved {saved} records")
-            except requests.exceptions.HTTPError as e:
-                print(f"  API error: {e}")
-                if "Too many values" in str(e.response.text if hasattr(e, 'response') else ''):
-                    print("  Reducing batch size...")
-                    for y in batch_years:
-                        try:
-                            data = fetch_batch([y], salary_type_code=st_code)
-                            saved = parse_and_save(data, salary_type=st_name)
-                            total_saved += saved
-                            print(f"    Year {y}: {saved} records")
-                        except Exception as e2:
-                            print(f"    Year {y} failed: {e2}")
+                data = fetch_vin02004_batch(batch_years, salary_type_code=st_code)
+                updated = parse_and_save_vin02004(data, salary_type=st_name)
+                total_decile_updated += updated
+                print(f"  Updated {updated} records with p10/p90")
             except Exception as e:
                 print(f"  Error: {e}")
+
+    print(f"\nVIN02004: Updated {total_decile_updated} records with decile data")
 
     # Summary
     from src.database import get_connection

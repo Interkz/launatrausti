@@ -274,6 +274,11 @@ def init_db():
     if not _column_exists(cursor, "job_listings", "employer_logo"):
         cursor.execute("ALTER TABLE job_listings ADD COLUMN employer_logo TEXT")
 
+    # Add p10/p90 decile columns to hagstofa_occupations (VIN02004 data)
+    for col in ["p10", "p90"]:
+        if not _column_exists(cursor, "hagstofa_occupations", col):
+            cursor.execute(f"ALTER TABLE hagstofa_occupations ADD COLUMN {col} INTEGER")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS unions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -955,7 +960,7 @@ def get_occupation_detail(isco_code: str, salary_type: str = "heildarlaun") -> l
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, p10, p90, observation_count
         FROM hagstofa_occupations
         WHERE isco_code = ? AND salary_type = ?
         ORDER BY year DESC
@@ -1001,6 +1006,7 @@ def save_hagstofa_occupation(
     isco_code: str, occupation_name: str, year: int,
     mean: int = None, median: int = None,
     p25: int = None, p75: int = None,
+    p10: int = None, p90: int = None,
     observation_count: int = None,
     salary_type: str = "heildarlaun"
 ) -> int:
@@ -1011,18 +1017,20 @@ def save_hagstofa_occupation(
     cursor.execute("""
         INSERT INTO hagstofa_occupations
             (isco_code, occupation_name, year, mean, median, p25, p75,
-             observation_count, salary_type, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             p10, p90, observation_count, salary_type, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (isco_code, year, salary_type) DO UPDATE SET
             occupation_name = excluded.occupation_name,
             mean = excluded.mean,
             median = excluded.median,
             p25 = excluded.p25,
             p75 = excluded.p75,
+            p10 = excluded.p10,
+            p90 = excluded.p90,
             observation_count = excluded.observation_count,
             fetched_at = excluded.fetched_at
     """, (isco_code, occupation_name, year, mean, median, p25, p75,
-          observation_count, salary_type, datetime.now()))
+          p10, p90, observation_count, salary_type, datetime.now()))
 
     record_id = cursor.lastrowid
     conn.commit()

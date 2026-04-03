@@ -36,10 +36,18 @@
         </div>
     </div>
 
+    {% set display_p10 = selected.p10 if selected.p10 else None %}
     {% set display_p25 = estimated_2025.p25 if estimated_2025 and estimated_2025.p25 else selected.p25 %}
     {% set display_med = estimated_2025.median if estimated_2025 else selected.median %}
     {% set display_p75 = estimated_2025.p75 if estimated_2025 and estimated_2025.p75 else selected.p75 %}
+    {% set display_p90 = selected.p90 if selected.p90 else None %}
     <div class="stat-row">
+        {% if display_p10 %}
+        <div class="stat-row__item stat-row__item--muted">
+            <div class="stat-row__label">Lægri 10%</div>
+            <div class="stat-row__value">{{ "{:,.0f}".format(display_p10).replace(",", ".") }}</div>
+        </div>
+        {% endif %}
         <div class="stat-row__item">
             <div class="stat-row__label">Lægri 25%</div>
             <div class="stat-row__value">{% if display_p25 %}{{ "{:,.0f}".format(display_p25).replace(",", ".") }}{% else %}&mdash;{% endif %}</div>
@@ -52,6 +60,12 @@
             <div class="stat-row__label">Efri 25%</div>
             <div class="stat-row__value">{% if display_p75 %}{{ "{:,.0f}".format(display_p75).replace(",", ".") }}{% else %}&mdash;{% endif %}</div>
         </div>
+        {% if display_p90 %}
+        <div class="stat-row__item stat-row__item--muted">
+            <div class="stat-row__label">Efri 10%</div>
+            <div class="stat-row__value">{{ "{:,.0f}".format(display_p90).replace(",", ".") }}</div>
+        </div>
+        {% endif %}
     </div>
 
     {% if time_series|length > 0 %}
