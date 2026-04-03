@@ -1,61 +1,71 @@
-# Session Summary — 2026-02-16
+# Session Summary — 2026-04-03
 
 ## What Was Done
-- Executed launatrausti-scrapers spec (4 tasks in parallel):
-  - VR salary survey PDF parser (`scripts/parse_vr_surveys.py`)
-  - Skatturinn annual report downloader (`scripts/scrape_arsreikningar.py`)
-  - Rikisreikningur government institution scraper (`scripts/scrape_rikisreikningur.py`)
-  - Extractor V2 with batch mode + extended fields (`src/extractor.py`)
-  - 16 extractor tests (`tests/test_extractor.py`)
-- Committed data sources research with 3 draft Icelandic emails
-- Executed launatrausti-app spec (3 tasks in parallel + verification):
-  - 6 new API routes + 4 JSON API endpoints in `src/main.py`
-  - 3 new Jinja2 templates: salaries, financials, launaleynd
-  - Updated base.html (nav, CSS), index.html (sector filter), company.html (VR comparison)
-  - Pipeline orchestration script (`scripts/run_pipeline.py`) with 7 stages
-  - 15 API endpoint tests (`tests/test_api.py`)
 
-## Files Changed (18 files, +4496 lines)
-- data-sources/RESEARCH-RESULTS.md (new, 597 lines)
-- requirements.txt (+3 deps: playwright, requests, beautifulsoup4)
-- scripts/extract_pdf.py (+81 lines, batch mode + source-type)
-- scripts/parse_vr_surveys.py (new, 447 lines)
-- scripts/run_pipeline.py (new, 381 lines)
-- scripts/scrape_arsreikningar.py (new, 882 lines)
-- scripts/scrape_rikisreikningur.py (new, 617 lines)
-- src/extractor.py (+270 lines, V2 extraction + batch)
-- src/main.py (+195 lines, 10 new/extended routes)
-- src/templates/base.html (+35 lines, nav + CSS components)
-- src/templates/company.html (+110 lines, financials + VR comparison)
-- src/templates/financials.html (new, 133 lines)
-- src/templates/index.html (+21 lines, sector filter + source dots)
-- src/templates/launaleynd.html (new, 110 lines)
-- src/templates/salaries.html (new, 111 lines)
-- tests/test_api.py (new, 160 lines, 15 tests)
-- tests/test_extractor.py (new, 371 lines, 16 tests)
+### Shipped (5 commits, all pushed to master)
+- **New front page:** "Hvað viltu þéna?" salary search hero with percentile position bar, occupation matches, "Næsta stig" aspirational hook, job matches, company matches
+- **Backend fixes:** `get_companies_near_salary()`, `get_all_occupations_flat()`, `source_pdf` in ranked query, budget-line filtering
+- **Education backfill:** 22 → 101 jobs with `education_required` via keyword heuristic
+- **Alfred scraper rewrite:** Switched to public Next.js data routes with minimal metadata storage + link-back
+- **SEO meta tags:** Company pages now have "Laun hjá [company]" titles, og:description with real salary data, canonical URLs
+- **Benchmarks page:** Fully translated to Icelandic, broken CSS vars fixed
+- **Footer:** Translated to Icelandic
+- **CLAUDE.md restructure:** 440 → 96 lines. Reference material moved to `docs/ai/reference.md`. Added 4 guardrails including mandatory Codex review gate.
+- **Global CLAUDE.md:** Fixed confidence/verification tension, added process respect rule
+- **Codex CLI:** Installed (v0.118.0), authenticated with Emil's Codex Plus subscription
 
-## Test Results
-40/40 tests passing (15 API + 9 database + 16 extractor)
+### Research Completed
+- **Alfred.is legality:** ToS prohibits scraping but is browse-wrap (likely unenforceable). CV-Online precedent supports our use. Minimal metadata + link-back is defensible.
+- **Keldan API:** Structured financials but no launakostnaður field. "Internal use only" terms. PDF download endpoint is the useful part.
+- **CreditInfo:** Has launakostnaður + starfsmenn as structured data, 600K+ reports. But same "no redistribution" terms.
+- **Tekjur.is history:** Published individual income, shut down in 48 days by Persónuvernd. Journalism exemption is the key distinction.
+- **Skatturinn tax data:** Physical-only, digitizing ruled illegal. Tekjublaðið does manual transcription.
+- **Ja.is Gagnatorg:** Real API at `gagnatorg.ja.is`, full company registry, 30-day free trial.
+- **Union surveys:** VFÍ (engineers), SSF (financial sector), FVH (business grads), gogn.fjr.is (government) — all have scrapeable salary data beyond VR.
+- **Glassdoor/levels.fyi:** Crowdsourcing won't work at Iceland's scale. Our public filings data is the advantage. Employer branding is the revenue model.
+
+## Files Changed
+```
+CLAUDE.md                     | 349 lines trimmed
+docs/ai/reference.md          | 111 lines (new)
+launatrausti.db               | education backfill
+scripts/scrape_jobs.py        | Alfred scraper rewrite
+src/database.py               | new helpers, budget filter, flat query
+src/main.py                   | salary search route, next_tier
+src/templates/base.html       | hero CSS, position bar, next-tier styles, footer
+src/templates/benchmarks.html | full Icelandic translation
+src/templates/company.html    | SEO meta tags
+src/templates/index.html      | complete front page rewrite
+```
 
 ## Issues Found
-- Starlette DeprecationWarning: TemplateResponse(name, context) → TemplateResponse(request, name) — cosmetic, not breaking
-- Skatturinn scraper needs `playwright install` to run (Playwright not installed in dev env)
-- Vercel CLI not authenticated — `vercel login` needed for deployment
+- **Zero private sector data.** All 205 annual reports are public sector. "Einkageirinn" tab is empty.
+- **Skatturinn PDF scraper violates their TOS.** 115 failures, can't legally use it.
+- **66% of job salary estimates are national_avg placeholders.** Most estimates are decorative.
+- **VR comparison math bug:** `diff_pct` on company pages computed against monthly VR avg instead of annualized. Needs fixing.
 
-## What Remains
-- Deploy to Vercel (needs `vercel login` interactive auth)
-- Send 3 Icelandic emails for data access (drafts in data-sources/RESEARCH-RESULTS.md)
-- Install Playwright and test Skatturinn scraper live
-- Run full pipeline with real data (`python scripts/run_pipeline.py`)
-- Visual verification of new pages (salaries, financials, launaleynd)
-- Mark launatrausti-scrapers and launatrausti-app specs as approved/completed
+## What Remains (approved plan)
+- [ ] Kill `/launaleynd` (misleading premise)
+- [ ] Merge `/company/{id}/financials` content into `/company/{id}`, then delete route
+- [ ] Fix VR comparison math bug
+- [ ] Clean `/salaries` page (dirty categories, English labels)
+- [ ] Rename rankings to "Opinber fyrirtæki", remove empty Einkageirinn tab
+- [ ] Update nav to 6 items
 
 ## Blockers
-- Vercel deployment blocked on interactive login
-- Skatturinn scraper blocked on Playwright installation
+- **Private sector data:** Waiting for Tuesday (April 8) to email Skatturinn + Keldan + Alfred
+- **Ja.is Gagnatorg:** Emil needs to sign up for 30-day trial
+- **Tax data journalism route:** Needs media lawyer consultation + Fjölmiðlanefnd registration before August 2026
 
 ## Decisions Made
-- Combined API routes + UI templates into one subagent (tight coupling on context variables)
-- Pipeline uses subprocess.run() for isolation (avoids side-effect-on-import issues)
-- All CSS visualizations are pure CSS (no JavaScript charting libraries)
-- Lumon/Severance aesthetic preserved across all new pages
+- **Codex review is now mandatory** before proposing page deletions, scraper rewrites, or product pivots
+- **CLAUDE.md restructured** to separate behavioral rules from reference material
+- **Confidence doctrine changed** from "never hedge" to "never waffle, never bluff — confidence earned by checking"
+- **Alfred jobs:** Keep showing with link-back attribution. Contact Alfred about partnership.
+- **Rankings stay** on front page (SEO/discovery value). Just be honest about public sector only.
+- **`/salaries` stays** — different data source (VR surveys) from `/samanburdur` (Hagstofa occupations)
+
+## Emails to Send Tuesday
+1. **Skatturinn:** Request formal bulk access to annual report data/PDFs
+2. **Keldan (Kristófer):** Ask about PDF download endpoint terms specifically
+3. **Alfred.is:** Propose partnership (our salary data ↔ their job listings)
