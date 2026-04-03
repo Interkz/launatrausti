@@ -25,17 +25,32 @@
 {% if salary and percentile is not none %}
 {# ==================== SCREEN 2: Percentile + Occupations ==================== #}
 <div class="results-section">
-    <div class="percentile-banner">
-        <div class="percentile-banner__number">{{ percentile }}%</div>
-        <div class="percentile-banner__text">
-            Launin þín eru hærri en miðgildi <strong>{{ percentile }}%</strong> starfsstétta á Íslandi
+
+    {# ==================== POSITION BAR ==================== #}
+    <div class="position-bar-wrap">
+        <div class="position-bar">
+            <div class="position-bar__track">
+                <div class="position-bar__fill" style="width: {{ percentile }}%;"></div>
+                <div class="position-bar__marker" style="left: {{ percentile }}%;">
+                    <span class="position-bar__label">Þú</span>
+                </div>
+            </div>
+            <div class="position-bar__ends">
+                <span>Lægst</span>
+                <span>Hæst</span>
+            </div>
         </div>
-        <div class="percentile-banner__source">{{ total_occupations }} starfsstéttir · Hagstofa Íslands 2024</div>
+        <div class="position-bar__result">
+            <span class="position-bar__pct">{{ percentile }}%</span>
+            <span class="position-bar__text">Launin þín eru hærri en miðgildi <strong>{{ percentile }}%</strong> starfsstétta</span>
+        </div>
+        <div class="position-bar__source">{{ total_occupations }} starfsstéttir · Hagstofa Íslands 2024</div>
     </div>
 
+    {# ==================== OCCUPATIONS AT YOUR LEVEL ==================== #}
     {% if nearby_occupations %}
     <div class="results-block">
-        <div class="results-block__header">Starfsstéttir við þessi laun</div>
+        <div class="results-block__header">Starfsstéttir sem borga svipað</div>
         <div class="occupation-list">
             {% for occ in nearby_occupations %}
             <a href="/samanburdur?isco={{ occ.isco_code }}&year=2024" class="occupation-row {% if occ.median and occ.median >= salary %}occupation-row--above{% else %}occupation-row--below{% endif %}">
@@ -43,18 +58,35 @@
                 <span class="occupation-row__salary">{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr</span>
             </a>
             {% endfor %}
-            <a href="/samanburdur?my_salary={{ salary }}" class="results-block__more">Sjá allar starfsstéttir &rarr;</a>
         </div>
     </div>
     {% endif %}
 
-    {# ==================== SCREEN 3: Jobs ==================== #}
+    {# ==================== NEXT TIER — THE HOOK ==================== #}
+    {% if next_tier %}
+    <div class="results-block next-tier">
+        <div class="results-block__header">Næsta stig &uarr;</div>
+        <div class="next-tier__subtitle">Starfsstéttir sem borga 50–150 þúsund meira</div>
+        <div class="occupation-list">
+            {% for occ in next_tier %}
+            <a href="/samanburdur?isco={{ occ.isco_code }}&year=2024" class="occupation-row occupation-row--above">
+                <span class="occupation-row__name">{{ occ.display_name }}</span>
+                <span class="occupation-row__gap">+{{ "{:,.0f}".format(occ.gap).replace(",", ".") }} kr</span>
+                <span class="occupation-row__salary">{{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr</span>
+            </a>
+            {% endfor %}
+        </div>
+        <a href="/samanburdur?my_salary={{ salary }}" class="results-block__more">Sjá allar starfsstéttir &rarr;</a>
+    </div>
+    {% endif %}
+
+    {# ==================== OPEN OPPORTUNITIES ==================== #}
     {% if matching_jobs %}
     <div class="results-block">
-        <div class="results-block__header">Opin störf á þessu launabili</div>
+        <div class="results-block__header">Opin tækifæri</div>
         <div class="job-list">
             {% for job in matching_jobs %}
-            <a href="/jobs?salary_min={{ salary - 100000 }}&salary_max={{ salary + 100000 }}" class="job-row">
+            <a href="{{ job.source_url or '/jobs' }}" class="job-row" {% if job.source_url %}target="_blank"{% endif %}>
                 <div class="job-row__title">{{ job.title }}</div>
                 <div class="job-row__meta">
                     <span class="job-row__employer">{{ job.employer_name }}</span>
@@ -66,18 +98,18 @@
                     {% endif %}
                 </div>
                 {% if job.source == 'alfred' %}
-                <span class="job-row__source">Alfred.is</span>
+                <span class="job-row__source">Sjá á Alfred.is &rarr;</span>
                 {% elif job.source == 'starfatorg' %}
-                <span class="job-row__source">Starfatorg</span>
+                <span class="job-row__source">Sjá á Starfatorg &rarr;</span>
                 {% endif %}
             </a>
             {% endfor %}
-            <a href="/jobs?salary_min={{ salary - 100000 }}&salary_max={{ salary + 100000 }}" class="results-block__more">Sjá öll störf &rarr;</a>
+            <a href="/jobs?salary_min={{ salary - 100000 }}&salary_max={{ salary + 100000 }}" class="results-block__more">Sjá öll {{ matching_jobs|length }}+ störf &rarr;</a>
         </div>
     </div>
     {% endif %}
 
-    {# ==================== SCREEN 4: Companies ==================== #}
+    {# ==================== COMPANIES ==================== #}
     {% if matching_companies %}
     <div class="results-block">
         <div class="results-block__header">Fyrirtæki sem borga svipað</div>

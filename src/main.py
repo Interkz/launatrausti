@@ -76,6 +76,7 @@ async def index(
     # Salary search results
     percentile = None
     nearby_occupations = []
+    next_tier = []
     matching_jobs = []
     matching_companies = []
 
@@ -98,6 +99,15 @@ async def index(
         for occ in nearby_above + nearby_below:
             occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
         nearby_occupations = nearby_below + nearby_above
+
+        # "Næsta stig" — occupations paying 50-150k more than you
+        next_tier = [
+            o for o in sorted_occ
+            if (o.get("median") or 0) > salary and (o.get("median") or 0) <= salary + 150000
+        ][:6]
+        for occ in next_tier:
+            occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
+            occ["gap"] = (occ.get("median") or 0) - salary
 
         # Matching jobs: salary within ±100k of target
         matching_jobs = database.get_active_jobs(
@@ -122,6 +132,7 @@ async def index(
             "education": education or "all",
             "percentile": percentile,
             "nearby_occupations": nearby_occupations,
+            "next_tier": next_tier if salary else [],
             "matching_jobs": matching_jobs,
             "matching_companies": matching_companies,
             "companies": companies,
