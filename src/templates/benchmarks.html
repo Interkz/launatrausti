@@ -1,28 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}Industry Benchmarks - Launatrausti{% endblock %}
+{% block title %}Atvinnugreinar — Launatrausti{% endblock %}
 
 {% block content %}
-<h2 style="margin-bottom: 1.5rem;">Industry Wage Benchmarks ({{ year }})</h2>
+<div class="page-header">
+    <h1>Launaviðmið eftir atvinnugreinum ({{ year }})</h1>
+</div>
 
 <div class="stats">
     <div class="stat-card">
-        <div class="label">Industries</div>
+        <div class="label">Atvinnugreinar</div>
         <div class="value">{{ benchmarks|length }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">National Average</div>
-        <div class="value">{% if national_avg %}{{ "{:,.0f}".format(national_avg.monthly_wage).replace(",", ".") }} kr{% else %}-{% endif %}</div>
+        <div class="label">Landsmeðaltal</div>
+        <div class="value">{% if national_avg %}{{ "{:,.0f}".format(national_avg.monthly_wage).replace(",", ".") }} kr{% else %}—{% endif %}</div>
     </div>
     <div class="stat-card">
-        <div class="label">Highest Paying</div>
-        <div class="value">{% if benchmarks %}{{ "{:,.0f}".format(benchmarks[0].monthly_wage).replace(",", ".") }} kr{% else %}-{% endif %}</div>
+        <div class="label">Hæstu laun</div>
+        <div class="value">{% if benchmarks %}{{ "{:,.0f}".format(benchmarks[0].monthly_wage).replace(",", ".") }} kr{% else %}—{% endif %}</div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h2>Average Monthly Wages by Industry</h2>
+        <h2>Meðallaun á mánuði eftir atvinnugrein</h2>
         <div class="year-filter">
             {% for y in years %}
             <a href="/benchmarks?year={{ y }}" {% if year == y %}class="active"{% endif %}>{{ y }}</a>
@@ -33,10 +35,10 @@
         <thead>
             <tr>
                 <th style="width: 60px;">#</th>
-                <th>Industry</th>
-                <th>Monthly Avg</th>
-                <th>Annual Avg</th>
-                <th>vs National</th>
+                <th>Atvinnugrein</th>
+                <th>Meðallaun/mán.</th>
+                <th>Meðallaun/ár</th>
+                <th>vs Landsmeðaltal</th>
             </tr>
         </thead>
         <tbody>
@@ -45,8 +47,8 @@
             <tr>
                 <td class="rank">{{ loop.index }}</td>
                 <td>
-                    <strong>{{ bm.industry_name_en }}</strong>
-                    <br><span style="color: var(--text-secondary); font-size: 0.85rem;">{{ bm.industry_name }}</span>
+                    <strong>{{ bm.industry_name }}</strong>
+                    <br><span style="color: var(--lumon-text-secondary); font-size: 0.85rem;">{{ bm.industry_name_en }}</span>
                 </td>
                 <td class="salary">{{ "{:,.0f}".format(bm.monthly_wage).replace(",", ".") }} kr</td>
                 <td class="salary-annual">{{ "{:,.0f}".format(bm.annual_wage).replace(",", ".") }} kr</td>
@@ -56,14 +58,14 @@
                     <span class="benchmark-diff {% if diff >= 0 %}positive{% else %}negative{% endif %}">
                         {% if diff >= 0 %}+{% endif %}{{ "{:.1f}".format(diff) }}%
                     </span>
-                    {% else %}-{% endif %}
+                    {% else %}—{% endif %}
                 </td>
             </tr>
             {% endif %}
             {% else %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
-                    No benchmark data available for {{ year }}.
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--lumon-text-secondary);">
+                    Engin gögn fundust fyrir {{ year }}.
                 </td>
             </tr>
             {% endfor %}
@@ -71,11 +73,11 @@
     </table>
 </div>
 
-<div class="info-box" style="margin-top: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: 0.5rem; border: 1px solid var(--border);">
-    <p style="color: var(--text-secondary); font-size: 0.875rem;">
-        <strong>Source:</strong> Hagstofa Islands (Statistics Iceland) - Table VIN02003<br>
-        Data represents average total wages for full-time employees across all occupations and genders.<br>
-        <a href="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__launogtekjur__1_laun__1_laun/VIN02003.px" target="_blank" style="color: var(--accent);">View source data</a>
+<div style="margin-top: 1.5rem; padding: 1rem; background: var(--lumon-paper); border: 1px solid var(--lumon-grid);">
+    <p style="color: var(--lumon-text-secondary); font-size: 0.875rem; font-family: var(--font-mono);">
+        <strong>Heimild:</strong> Hagstofa Íslands — Tafla VIN02003<br>
+        Gögn sýna meðal heildarlaun starfsmanna í fullu starfi, allar starfsgreinar og kyn.<br>
+        <a href="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__launogtekjur__1_laun__1_laun/VIN02003.px" target="_blank" style="color: var(--lumon-green);">Sjá frumgögn</a>
     </p>
 </div>
 {% endblock %}

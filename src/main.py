@@ -52,10 +52,13 @@ templates = Jinja2Templates(directory=str(templates_dir))
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
+    salary: Optional[int] = None,
     year: Optional[int] = None,
     sector: Optional[str] = None,
+    education: Optional[str] = None,
 ):
-    """Home page with ranked list of companies by average salary."""
+    """Home page: salary search hero + company rankings below the fold."""
+    # Always load rankings for below-the-fold section
     companies = database.get_ranked_companies(
         year=year, sector=sector, exclude_sample=True
     )
@@ -67,20 +70,69 @@ async def index(
         if c.get("source_pdf")
     )
 
-    # Calculate average monthly salary for color coding
     monthly_salaries = [c["avg_salary"] // 12 for c in companies if c.get("avg_salary")]
     avg_monthly = sum(monthly_salaries) // len(monthly_salaries) if monthly_salaries else 0
+
+    # Salary search results
+    percentile = None
+    nearby_occupations = []
+    matching_jobs = []
+    matching_companies = []
+
+    all_occ_flat = database.get_all_occupations_flat(year=2024, salary_type="heildarlaun")
+    total_occupations = len(all_occ_flat)
+
+    if salary and salary > 0:
+        # Percentile: what % of occupation medians are below this salary
+        all_medians = [occ.get("median") for occ in all_occ_flat if occ.get("median")]
+        if all_medians:
+            below = sum(1 for m in all_medians if m < salary)
+            percentile = round(below / len(all_medians) * 100)
+
+        # Nearby occupations: 5 above, 5 below
+        sorted_occ = sorted(all_occ_flat, key=lambda x: x.get("median") or 0)
+        above = [o for o in sorted_occ if (o.get("median") or 0) >= salary]
+        below_list = [o for o in sorted_occ if (o.get("median") or 0) < salary]
+        nearby_above = above[:5]
+        nearby_below = list(reversed(below_list[-5:]))
+        for occ in nearby_above + nearby_below:
+            occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
+        nearby_occupations = nearby_below + nearby_above
+
+        # Matching jobs: salary within ±100k of target
+        matching_jobs = database.get_active_jobs(
+            salary_min=salary - 100000,
+            salary_max=salary + 100000,
+            sort="salary",
+            limit=10,
+        )
+
+        # Matching companies: avg monthly salary near target
+        matching_companies = database.get_companies_near_salary(salary)
+
+    # Stats for hero section
+    stats = database.get_platform_stats()
+    job_count = database.get_job_count()
 
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
+            "salary": salary,
+            "education": education or "all",
+            "percentile": percentile,
+            "nearby_occupations": nearby_occupations,
+            "matching_jobs": matching_jobs,
+            "matching_companies": matching_companies,
             "companies": companies,
             "years": years,
             "selected_year": year,
             "selected_sector": sector,
             "has_real_data": has_real_data,
             "avg_monthly": avg_monthly,
+            "total_companies": stats["total_companies"],
+            "total_jobs": job_count,
+            "total_occupations": total_occupations,
         }
     )
 

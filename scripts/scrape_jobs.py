@@ -45,6 +45,7 @@ from src.database import (
 log = logging.getLogger(__name__)
 
 ALFRED_API_URL = "https://userapi.alfred.is/api/v2/jobs"
+ALFRED_BASE_URL = "https://alfred.is"
 STARFATORG_URL = "https://island.is/api/graphql"
 
 
@@ -54,12 +55,11 @@ STARFATORG_URL = "https://island.is/api/graphql"
 
 
 def parse_alfred_job(raw: dict) -> JobListing:
-    """Convert an Alfred API job object to a JobListing.
+    """Convert an Alfred public page job object to a JobListing.
 
-    Real Alfred API fields: id (int), slug, title, brand{name, slug, logo},
-    employmentType (list of strings like ["FULL_TIME"]), jobTypes (list of strings),
-    addresses[{formatted, streetName, lat, lng}], deadline (ISO), published (ISO),
-    created (ISO), description, bodyhtml, jobCompensations[].
+    Uses Next.js data route fields: id, slug, title, brand{name, slug, logo},
+    employmentType (list), addresses[{formatted, lat, lon}], deadline, published.
+    We store only minimal metadata + link back — no full descriptions (legal).
     """
     brand = raw.get("brand") or {}
     job_id = str(raw.get("id", ""))
@@ -70,8 +70,6 @@ def parse_alfred_job(raw: dict) -> JobListing:
         emp_type = str(emp_types[0])
     elif isinstance(emp_types, str):
         emp_type = emp_types
-    elif isinstance(emp_types, dict):
-        emp_type = emp_types.get("name")
     else:
         emp_type = None
 
@@ -80,20 +78,13 @@ def parse_alfred_job(raw: dict) -> JobListing:
     location_name = None
     location_lat = None
     location_lon = None
-    if addresses and isinstance(addresses, list):
-        addr = addresses[0] if isinstance(addresses[0], dict) else {}
+    if addresses and isinstance(addresses, list) and isinstance(addresses[0], dict):
+        addr = addresses[0]
         location_name = addr.get("formatted") or addr.get("streetName")
         location_lat = addr.get("lat")
-        location_lon = addr.get("lng")
-    # Fallback to location dict (old API format)
-    if not location_name:
-        loc = raw.get("location") or {}
-        if isinstance(loc, dict):
-            location_name = loc.get("name")
-            location_lat = location_lat or loc.get("latitude")
-            location_lon = location_lon or loc.get("longitude")
+        location_lon = addr.get("lon") or addr.get("lng")
 
-    # Source URL — real format is alfred.is/starf/{job-slug}
+    # Source URL — always link back to Alfred
     job_slug = raw.get("slug", "")
     source_url = f"https://alfred.is/starf/{job_slug}" if job_slug else f"https://alfred.is/starf/{job_id}"
 
@@ -104,11 +95,13 @@ def parse_alfred_job(raw: dict) -> JobListing:
     deadline_raw = raw.get("deadline") or raw.get("applicationDeadline")
     deadline = deadline_raw[:10] if deadline_raw else None
 
-    created_raw = raw.get("published") or raw.get("created") or raw.get("createdAt")
+    created_raw = raw.get("published") or raw.get("created")
     posted_date = created_raw[:10] if created_raw else None
 
-    # Description: prefer bodyhtml over description
-    description = raw.get("bodyhtml") or raw.get("description") or ""
+    # Minimal description only — do NOT store full bodyhtml/description
+    # Just store a short summary for search purposes
+    desc = raw.get("description") or ""
+    short_desc = desc[:200] if desc else ""
 
     return JobListing(
         id=None,
@@ -120,7 +113,7 @@ def parse_alfred_job(raw: dict) -> JobListing:
         location_lat=location_lat,
         location_lon=location_lon,
         employment_type=emp_type,
-        description_raw=description,
+        description_raw=short_desc,
         source_url=source_url,
         posted_date=posted_date,
         deadline=deadline,
@@ -130,24 +123,64 @@ def parse_alfred_job(raw: dict) -> JobListing:
     )
 
 
+def _get_alfred_build_id(client: httpx.Client) -> str:
+    """Fetch Alfred.is main page and extract the Next.js buildId."""
+    resp = client.get(f"{ALFRED_BASE_URL}/storf")
+    resp.raise_for_status()
+    import re
+    # Look for buildId in __NEXT_DATA__ JSON
+    match = re.search(r'"buildId"\s*:\s*"([^"]+)"', resp.text)
+    if match:
+        return match.group(1)
+    raise RuntimeError("Could not find Alfred.is Next.js buildId")
+
+
 def scrape_alfred(dry_run: bool = False) -> list[str]:
-    """Paginate through the Alfred.is jobs API.
+    """Scrape Alfred.is job listings.
+
+    Uses userapi.alfred.is (separate subdomain, no robots.txt) for full pagination.
+    Falls back to Next.js data route if the API is unreachable.
+    Stores only minimal metadata — no full descriptions (legal risk mitigation).
+    Always links back to alfred.is/starf/{slug}.
 
     Returns a list of source_ids for all jobs seen (used to deactivate stale entries).
     """
     source_ids: list[str] = []
     page = 1
-    page_size = 50
+    page_size = 100
 
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
         while True:
             log.info("Alfred: fetching page %d (size=%d)", page, page_size)
-            resp = client.get(
-                ALFRED_API_URL,
-                params={"page": page, "size": page_size, "translate": "false"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
+            try:
+                resp = client.get(
+                    ALFRED_API_URL,
+                    params={"page": page, "size": page_size, "translate": "false"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except (httpx.HTTPError, Exception) as e:
+                # Fallback to Next.js data route (only gets first 27 jobs)
+                log.warning("Alfred API failed (%s), trying Next.js fallback", e)
+                try:
+                    build_id = _get_alfred_build_id(client)
+                    resp = client.get(
+                        f"{ALFRED_BASE_URL}/_next/data/{build_id}/jobs.json",
+                    )
+                    resp.raise_for_status()
+                    fallback_data = resp.json()
+                    data = fallback_data.get("pageProps", {}).get("jobs", {}).get("jobs", [])
+                    # Wrap in list format for uniform processing
+                    if isinstance(data, list):
+                        for raw in data:
+                            listing = parse_alfred_job(raw)
+                            source_ids.append(listing.source_id)
+                            if not dry_run:
+                                save_job_listing(listing)
+                    log.info("Alfred: fallback yielded %d jobs", len(data) if isinstance(data, list) else 0)
+                except Exception as e2:
+                    log.error("Alfred: both API and fallback failed: %s", e2)
+                break
 
             # Response may be a list directly or nested under a key
             if isinstance(data, list):
@@ -176,7 +209,7 @@ def scrape_alfred(dry_run: bool = False) -> list[str]:
                 break
 
             page += 1
-            time.sleep(1)
+            time.sleep(1.5)  # Be respectful
 
     log.info("Alfred: total %d jobs scraped", len(source_ids))
     return source_ids

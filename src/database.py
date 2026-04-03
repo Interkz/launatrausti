@@ -436,19 +436,65 @@ def get_ranked_companies(
     # Exclude budget line items with fewer than 3 employees
     where_clauses.append("ar.starfsmenn >= 3")
 
+    # Exclude government budget categories that aren't real employers
+    budget_lines = [
+        "Ýmis verkefni", "Ýmis framlög%", "Kosningar",
+        "Heilbrigðismál, ýmis%", "Varnarmál", "Alþjóðleg þróunarsamvinna",
+    ]
+    for pattern in budget_lines:
+        if "%" in pattern:
+            where_clauses.append("c.name NOT LIKE ?")
+        else:
+            where_clauses.append("c.name != ?")
+        params.append(pattern)
+
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
     params.append(limit)
 
     cursor.execute(f"""
         SELECT
-            c.id, c.kennitala, c.name, c.isat_code,
-            ar.year, ar.launakostnadur, ar.starfsmenn, ar.avg_salary, ar.tekjur
+            c.id, c.kennitala, c.name, c.isat_code, c.sector,
+            ar.year, ar.launakostnadur, ar.starfsmenn, ar.avg_salary, ar.tekjur,
+            ar.source_pdf, ar.source_type
         FROM companies c
         JOIN annual_reports ar ON c.id = ar.company_id
         WHERE {where_sql}
         ORDER BY ar.avg_salary DESC
         LIMIT ?
     """, params)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_companies_near_salary(target_monthly: int, window: int = 100000, limit: int = 10):
+    """Get companies whose avg monthly salary is near the target."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    target_annual = target_monthly * 12
+    low = target_annual - (window * 12)
+    high = target_annual + (window * 12)
+
+    cursor.execute("""
+        SELECT
+            c.id, c.kennitala, c.name, c.isat_code, c.sector,
+            ar.year, ar.starfsmenn, ar.avg_salary,
+            ar.avg_salary / 12 as monthly_salary,
+            ABS(ar.avg_salary / 12 - ?) as distance
+        FROM companies c
+        JOIN annual_reports ar ON c.id = ar.company_id
+            AND ar.year = (SELECT MAX(ar2.year) FROM annual_reports ar2 WHERE ar2.company_id = c.id)
+        WHERE ar.avg_salary BETWEEN ? AND ?
+            AND ar.starfsmenn >= 3
+            AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
+            AND c.name NOT IN ('Ýmis verkefni', 'Varnarmál', 'Kosningar', 'Alþjóðleg þróunarsamvinna')
+            AND c.name NOT LIKE 'Ýmis framlög%'
+            AND c.name NOT LIKE 'Heilbrigðismál, ýmis%'
+        ORDER BY distance ASC
+        LIMIT ?
+    """, (target_monthly, low, high, limit))
 
     rows = cursor.fetchall()
     conn.close()
@@ -850,6 +896,26 @@ def get_all_occupations_grouped(year: int = 2024, sort_by: str = "median", salar
         groups[first_char].append(r)
 
     return groups
+
+
+def get_all_occupations_flat(year: int = 2024, sort_by: str = "median", salary_type: str = "heildarlaun") -> list[dict]:
+    """Get all occupations for a year as a flat sorted list."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    order_col = sort_by if sort_by in ("mean", "median", "p75", "p25") else "median"
+
+    cursor.execute(f"""
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, observation_count, salary_type
+        FROM hagstofa_occupations
+        WHERE year = ? AND {order_col} IS NOT NULL AND salary_type = ?
+            AND LENGTH(REPLACE(REPLACE(isco_code, '*', ''), ' ', '')) >= 4
+        ORDER BY {order_col} DESC
+    """, (year, salary_type))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def search_occupations(query: str = "", year: int = 2024, limit: int = 20, salary_type: str = "heildarlaun") -> list[dict]:

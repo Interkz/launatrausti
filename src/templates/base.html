@@ -925,6 +925,213 @@
                 display: none;
             }
         }
+
+        /* ===== Homepage Hero ===== */
+        .hero {
+            text-align: center;
+            padding: 4rem 1rem 3rem;
+            background: #ffffff;
+            margin: -3rem -3rem 2rem -3rem;
+            border-bottom: 2px solid var(--lumon-green);
+        }
+        .hero__title {
+            font-family: var(--font-display);
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--lumon-black);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        .hero__subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--lumon-text-secondary);
+            margin-bottom: 2.5rem;
+        }
+        .hero__form { display: flex; justify-content: center; }
+        .hero__input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #fff;
+            border: 2px solid var(--lumon-green);
+            padding: 0.5rem 0.75rem;
+            max-width: 500px;
+            width: 100%;
+        }
+        .hero__input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--lumon-black);
+            background: transparent;
+            min-width: 0;
+        }
+        .hero__input::placeholder { color: var(--lumon-grid); }
+        .hero__unit {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--lumon-text-secondary);
+            white-space: nowrap;
+        }
+        .hero__button {
+            background: var(--lumon-green);
+            color: #fff;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .hero__button:hover { background: var(--lumon-green-light); }
+
+        /* ===== Results sections ===== */
+        .results-section { margin-bottom: 2rem; }
+        .percentile-banner {
+            text-align: center;
+            padding: 2rem 1rem;
+            border-bottom: 1px solid var(--lumon-grid);
+            margin-bottom: 2rem;
+        }
+        .percentile-banner__number {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--salary-high);
+            line-height: 1;
+        }
+        .percentile-banner__text {
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            color: var(--lumon-black);
+            margin-top: 0.5rem;
+        }
+        .percentile-banner__source {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .results-block { margin-bottom: 2rem; }
+        .results-block__header {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--lumon-green);
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--lumon-grid);
+            margin-bottom: 0;
+        }
+        .results-block__more {
+            display: block;
+            text-align: center;
+            padding: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-green);
+            text-decoration: none;
+            border-top: 1px solid var(--lumon-grid);
+        }
+        .results-block__more:hover { background: var(--lumon-paper); }
+
+        /* Occupation rows */
+        .occupation-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--lumon-grid);
+            text-decoration: none;
+            color: var(--lumon-black);
+        }
+        .occupation-row:hover { background: var(--lumon-paper); padding-left: 0.5rem; padding-right: 0.5rem; }
+        .occupation-row__name { font-family: var(--font-sans); font-size: 0.9375rem; }
+        .occupation-row__salary {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .occupation-row--above .occupation-row__salary { color: var(--salary-high); }
+        .occupation-row--below .occupation-row__salary { color: var(--lumon-text-secondary); }
+
+        /* Job rows */
+        .job-row {
+            display: block;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--lumon-grid);
+            text-decoration: none;
+            color: var(--lumon-black);
+        }
+        .job-row:hover { background: var(--lumon-paper); padding-left: 0.5rem; padding-right: 0.5rem; }
+        .job-row__title { font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 600; }
+        .job-row__meta {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
+        }
+        .job-row__salary { color: var(--salary-high); font-weight: 600; }
+        .job-row__edu {
+            background: var(--lumon-paper);
+            padding: 0 0.375rem;
+            border: 1px solid var(--lumon-grid);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .job-row__source {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--lumon-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 0.25rem;
+        }
+
+        /* Company rows */
+        .company-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--lumon-grid);
+            text-decoration: none;
+            color: var(--lumon-black);
+        }
+        .company-row:hover { background: var(--lumon-paper); padding-left: 0.5rem; padding-right: 0.5rem; }
+        .company-row__name { font-family: var(--font-display); font-size: 1rem; font-weight: 600; }
+        .company-row__salary { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 600; color: var(--lumon-green); }
+        .company-row__detail { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); width: 100%; }
+
+        .rankings-section { margin-top: 2rem; }
+
+        @media (max-width: 600px) {
+            .hero { padding: 2.5rem 0.5rem 2rem; margin: -2rem -1rem 1.5rem -1rem; }
+            .hero__title { font-size: 2.25rem; }
+            .hero__input-wrap { flex-wrap: wrap; }
+            .hero__input { font-size: 1.25rem; }
+            .hero__button { width: 100%; }
+            .percentile-banner__number { font-size: 3rem; }
+        }
     </style>
 </head>
 <body>
@@ -953,14 +1160,14 @@
         <footer>
             <div class="footer-grid">
                 <div class="footer-content">
-                    <p>Company data sourced from public annual reports (ársreikningar) filed with <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
-                    <p style="margin-top: 0.5rem;">Industry benchmarks from <a href="https://hagstofa.is/" target="_blank">Hagstofa Íslands</a> (Statistics Iceland).</p>
-                    <p style="margin-top: 0.5rem;">VR salary survey data from <a href="https://www.vr.is/kannanir/launakonnun/" target="_blank">VR Launarannsókn</a>.</p>
-                    <p style="margin-top: 0.5rem;">Methodology: Average salary = Total wage costs ÷ Number of employees</p>
+                    <p>Gögn úr opinberum ársreikningum sem skilað er til <a href="https://www.skatturinn.is/fyrirtaekjaskra/arsreikningaskra/" target="_blank">Skatturinn</a>.</p>
+                    <p style="margin-top: 0.5rem;">Atvinnugreinaviðmið frá <a href="https://hagstofa.is/" target="_blank">Hagstofu Íslands</a>.</p>
+                    <p style="margin-top: 0.5rem;">Launakönnunargögn frá <a href="https://www.vr.is/kannanir/launakonnun/" target="_blank">VR Launarannsókn</a>.</p>
+                    <p style="margin-top: 0.5rem;">Aðferðafræði: Meðallaun = Launakostnaður ÷ Starfsmannafjöldi</p>
                 </div>
                 <div class="footer-meta">
-                    <p>Document Classification: Public</p>
-                    <p>Data Refresh: Manual</p>
+                    <p>Flokkun: Opinber gögn</p>
+                    <p>Uppfærsla: Handvirk</p>
                 </div>
             </div>
         </footer>
