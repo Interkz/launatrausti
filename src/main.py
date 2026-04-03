@@ -103,7 +103,7 @@ async def index(
         # "Næsta stig" — occupations paying 50-150k more than you
         next_tier = [
             o for o in sorted_occ
-            if (o.get("median") or 0) > salary and (o.get("median") or 0) <= salary + 150000
+            if (o.get("median") or 0) >= salary + 50000 and (o.get("median") or 0) <= salary + 150000
         ][:6]
         for occ in next_tier:
             occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
