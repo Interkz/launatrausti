@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}{{ company.name }} - Launatrausti{% endblock %}
+{% block title %}Laun hjá {{ company.name }} — Launatrausti{% endblock %}
+
+{% block og_meta %}
+{% if reports %}
+{% set latest = reports[0] %}
+{% set monthly = latest.avg_salary // 12 %}
+<meta property="og:title" content="Laun hjá {{ company.name }} — Launatrausti">
+<meta property="og:description" content="Meðallaun hjá {{ company.name }}: {{ '{:,.0f}'.format(monthly).replace(',', '.') }} kr/mán. {{ '{:,.0f}'.format(latest.starfsmenn).replace(',', '.') }} starfsmenn. Sjá launaupplýsingar og samanburð.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Launatrausti">
+<meta property="og:url" content="https://launatrausti.is/company/{{ company.id }}">
+<meta name="description" content="Meðallaun hjá {{ company.name }}: {{ '{:,.0f}'.format(monthly).replace(',', '.') }} kr/mán. {{ '{:,.0f}'.format(latest.starfsmenn).replace(',', '.') }} starfsmenn. Sjá launaupplýsingar og samanburð.">
+<link rel="canonical" href="https://launatrausti.is/company/{{ company.id }}">
+{% else %}
+<meta property="og:title" content="{{ company.name }} — Launatrausti">
+<meta property="og:description" content="Launaupplýsingar fyrir {{ company.name }}. Sjá laun, starfsmannafjölda og samanburð.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Launatrausti">
+<meta property="og:url" content="https://launatrausti.is/company/{{ company.id }}">
+<meta name="description" content="Launaupplýsingar fyrir {{ company.name }}. Sjá laun, starfsmannafjölda og samanburð.">
+<link rel="canonical" href="https://launatrausti.is/company/{{ company.id }}">
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <a href="/" class="back-link">Back to rankings</a>
