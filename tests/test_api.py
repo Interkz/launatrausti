@@ -86,16 +86,16 @@ def test_salaries_with_category(client):
     assert response.status_code == 200
 
 
-def test_financials_page_returns_200(client, sample_company):
-    """GET /company/{id}/financials returns 200 for an existing company."""
-    response = client.get(f"/company/{sample_company}/financials")
-    assert response.status_code == 200
+def test_financials_page_redirects(client, sample_company):
+    """GET /company/{id}/financials redirects to company page."""
+    response = client.get(f"/company/{sample_company}/financials", follow_redirects=False)
+    assert response.status_code == 301
 
 
-def test_launaleynd_returns_200(client):
-    """GET /launaleynd returns 200."""
+def test_launaleynd_removed(client):
+    """GET /launaleynd returns 404 (page removed)."""
     response = client.get("/launaleynd")
-    assert response.status_code == 200
+    assert response.status_code == 404
 
 
 def test_benchmarks_returns_200(client):

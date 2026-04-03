@@ -256,97 +256,11 @@ async def salaries_page(
     )
 
 
-@app.get("/company/{company_id}/financials", response_class=HTMLResponse)
-async def company_financials_page(request: Request, company_id: int):
-    """Company financials detail page."""
-    financials = database.get_company_financials(company_id)
-
-    if not financials or not financials.get("company"):
-        raise HTTPException(status_code=404, detail="Company not found")
-
-    return templates.TemplateResponse(
-        "financials.html",
-        {
-            "request": request,
-            "company": financials["company"],
-            "reports": financials["reports"],
-            "trends": financials["trends"],
-        }
-    )
-
-
-@app.get("/launaleynd", response_class=HTMLResponse)
-async def launaleynd_page(request: Request):
-    """Salary secrecy gap analysis page."""
-    # Compare company avg salaries to VR survey averages
-    conn = database.get_connection()
-    cursor = conn.cursor()
-
-    # Get VR survey overall average (latest survey date)
-    cursor.execute("""
-        SELECT survey_date, AVG(medaltal) as vr_avg
-        FROM vr_salary_surveys
-        GROUP BY survey_date
-        ORDER BY survey_date DESC
-        LIMIT 1
-    """)
-    vr_row = cursor.fetchone()
-
-    gaps = []
-    if vr_row:
-        vr_avg = vr_row["vr_avg"]
-        vr_date = vr_row["survey_date"]
-
-        # Get companies with their latest avg salary
-        cursor.execute("""
-            SELECT
-                c.id, c.name, c.kennitala, c.sector,
-                ar.avg_salary, ar.year, ar.source_pdf
-            FROM companies c
-            JOIN annual_reports ar ON c.id = ar.company_id
-            WHERE ar.year = (
-                SELECT MAX(ar2.year) FROM annual_reports ar2
-                WHERE ar2.company_id = c.id
-            )
-            AND (ar.is_sample = 0 OR ar.is_sample IS NULL)
-            ORDER BY ar.avg_salary ASC
-        """)
-
-        for row in cursor.fetchall():
-            company_annual = row["avg_salary"]
-            # VR survey data is monthly, company avg_salary is annual
-            vr_annual = vr_avg * 12
-            gap = company_annual - vr_annual
-            gap_pct = round((gap / vr_annual) * 100, 1) if vr_annual else 0
-
-            gaps.append({
-                "id": row["id"],
-                "name": row["name"],
-                "kennitala": row["kennitala"],
-                "sector": row["sector"],
-                "avg_salary": company_annual,
-                "year": row["year"],
-                "vr_expected": round(vr_annual),
-                "gap": round(gap),
-                "gap_pct": gap_pct,
-                "source_pdf": row["source_pdf"],
-            })
-
-        # Sort by gap ascending (largest negative gap first = most underpaying)
-        gaps.sort(key=lambda x: x["gap"])
-    else:
-        vr_date = None
-
-    conn.close()
-
-    return templates.TemplateResponse(
-        "launaleynd.html",
-        {
-            "request": request,
-            "gaps": gaps,
-            "vr_date": vr_date,
-        }
-    )
+@app.get("/company/{company_id}/financials")
+async def company_financials_redirect(company_id: int):
+    """Redirect old financials URL to main company page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/company/{company_id}", status_code=301)
 
 
 @app.get("/samanburdur", response_class=HTMLResponse)

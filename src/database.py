@@ -667,7 +667,9 @@ def get_salary_comparison(company_id: int) -> dict:
         }
 
     vr_avg = vr_row["vr_avg"]
-    diff_pct = round((company_avg - vr_avg) / vr_avg * 100, 1) if vr_avg else None
+    # VR survey data is monthly; company avg_salary is annual — must annualize
+    vr_avg_annual = vr_avg * 12 if vr_avg else None
+    diff_pct = round((company_avg - vr_avg_annual) / vr_avg_annual * 100, 1) if vr_avg_annual else None
 
     return {
         "company_avg_salary": company_avg,

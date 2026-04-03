@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Salary by Position - Launatrausti{% endblock %}
+{% block title %}Launakannanir — Launatrausti{% endblock %}
 
 {% block content %}
 <div class="company-header">
-    <h1 style="font-size: 2rem;">Salary by Position</h1>
-    <p class="industry">VR Launarannsoekn — Union Salary Survey Data</p>
+    <h1 style="font-size: 2rem;">Launakannanir</h1>
+    <p class="industry">VR Launakönnun — Launagögn eftir starfsstétt</p>
 </div>
 
 {% if dates %}
 <div style="margin-bottom: 2rem;">
     <div class="year-filter">
-        <a href="/salaries?{% if selected_category %}category={{ selected_category }}{% endif %}" {% if not selected_date %}class="active"{% endif %}>All Dates</a>
+        <a href="/salaries?{% if selected_category %}category={{ selected_category }}{% endif %}" {% if not selected_date %}class="active"{% endif %}>Allar dagsetningar</a>
         {% for date in dates %}
         <a href="/salaries?survey_date={{ date }}{% if selected_category %}&category={{ selected_category }}{% endif %}" {% if selected_date == date %}class="active"{% endif %}>{{ date }}</a>
         {% endfor %}
@@ -22,7 +22,7 @@
 <div class="content-with-sidebar">
     <div>
         <div class="filter-sidebar">
-            <a href="/salaries?{% if selected_date %}survey_date={{ selected_date }}{% endif %}" {% if not selected_category %}class="active"{% endif %}>All Categories</a>
+            <a href="/salaries?{% if selected_date %}survey_date={{ selected_date }}{% endif %}" {% if not selected_category %}class="active"{% endif %}>Allar stéttir</a>
             {% for cat in categories %}
             <a href="/salaries?category={{ cat }}{% if selected_date %}&survey_date={{ selected_date }}{% endif %}" {% if selected_category == cat %}class="active"{% endif %}>{{ cat }}</a>
             {% endfor %}
@@ -34,34 +34,34 @@
         {% set max_salary = surveys|map(attribute='medaltal')|max %}
         <div class="stats" style="grid-template-columns: repeat(3, 1fr);">
             <div class="stat-card">
-                <div class="label">Positions</div>
+                <div class="label">Starfsstéttir</div>
                 <div class="value">{{ surveys|length }}</div>
             </div>
             <div class="stat-card">
-                <div class="label">Highest Mean</div>
+                <div class="label">Hæstu meðallaun</div>
                 <div class="value">{{ "{:,.0f}".format(max_salary).replace(",", ".") }}<span style="font-size: 0.75em; margin-left: 0.25em; opacity: 0.7;">kr</span></div>
             </div>
             <div class="stat-card">
-                <div class="label">Category</div>
-                <div class="value" style="font-size: 1rem;">{{ selected_category or 'All' }}</div>
+                <div class="label">Flokkur</div>
+                <div class="value" style="font-size: 1rem;">{{ selected_category or 'Allt' }}</div>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header">
-                <h2>VR Salary Survey</h2>
-                <span class="source">Source: VR Launarannsoekn</span>
+                <h2>VR Launakönnun</h2>
+                <span class="source">Heimild: VR Launakönnun</span>
             </div>
             <table>
                 <thead>
                     <tr>
-                        <th>Position</th>
-                        <th>Mean</th>
-                        <th>Median</th>
-                        <th>25th</th>
-                        <th>75th</th>
-                        <th style="text-align: right;">Respondents</th>
-                        <th style="width: 120px;">Distribution</th>
+                        <th>Starfsheiti</th>
+                        <th>Meðaltal</th>
+                        <th>Miðgildi</th>
+                        <th>25%</th>
+                        <th>75%</th>
+                        <th style="text-align: right;">Svarendur</th>
+                        <th style="width: 120px;">Dreifing</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -93,16 +93,16 @@
         </div>
 
         <div class="page-meta" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em; text-align: right; margin-top: -2rem;">
-            Record Count: {{ surveys|length }} // Sort: Descending by Mean Salary // Bar: green = mean, marker = median
+            Fjöldi: {{ surveys|length }} // Röðun: Meðallaun (hæst fyrst) // Súla: græn = meðaltal, merki = miðgildi
         </div>
 
         {% else %}
         <div class="card">
             <div class="card-header">
-                <h2>VR Salary Survey</h2>
+                <h2>VR Launakönnun</h2>
             </div>
             <div style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
-                No VR survey data loaded. Run: <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/parse_vr_surveys.py</code>
+                Engin launagögn hlaðin. Keyrðu: <code style="background: var(--lumon-paper); padding: 0.25em 0.5em; border: 1px solid var(--lumon-grid);">python scripts/parse_vr_surveys.py</code>
             </div>
         </div>
         {% endif %}

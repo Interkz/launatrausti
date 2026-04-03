@@ -131,22 +131,18 @@
 <div class="rankings-section" {% if salary %}style="margin-top: 4rem; padding-top: 2rem; border-top: 2px solid var(--lumon-grid);"{% endif %}>
     <div class="card">
         <div class="card-header">
-            <h2>Launaskrá</h2>
+            <h2>Opinber fyrirtæki</h2>
             <div style="display: flex; gap: 1rem; align-items: center;">
                 <div class="year-filter">
-                    <a href="/?{% if selected_sector %}sector={{ selected_sector }}{% endif %}{% if salary %}&salary={{ salary }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Nýjast</a>
+                    <a href="/?{% if salary %}salary={{ salary }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Nýjast</a>
                     {% for year in years %}
-                    <a href="/?year={{ year }}{% if selected_sector %}&sector={{ selected_sector }}{% endif %}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
+                    <a href="/?year={{ year }}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
                     {% endfor %}
                 </div>
             </div>
         </div>
-        <div style="padding: 0.75rem 2rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper);">
-            <div class="year-filter">
-                <a href="/?{% if selected_year %}year={{ selected_year }}{% endif %}{% if salary %}&salary={{ salary }}{% endif %}" {% if not selected_sector %}class="active"{% endif %}>Allt</a>
-                <a href="/?sector=private{% if selected_year %}&year={{ selected_year }}{% endif %}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_sector == 'private' %}class="active"{% endif %}>Einkageirinn</a>
-                <a href="/?sector=public{% if selected_year %}&year={{ selected_year }}{% endif %}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_sector == 'public' %}class="active"{% endif %}>Opinbert</a>
-            </div>
+        <div style="padding: 0.75rem 2rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper); font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+            Gögn úr opinberum ársreikningum. <strong style="color: var(--lumon-green);">Einkageirinn kemur fljótlega.</strong>
         </div>
         <table>
             <thead>
