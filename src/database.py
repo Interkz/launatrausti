@@ -280,6 +280,27 @@ def init_db():
             cursor.execute(f"ALTER TABLE hagstofa_occupations ADD COLUMN {col} INTEGER")
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vfi_salary_surveys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            survey_year INTEGER NOT NULL,
+            member_type TEXT NOT NULL,
+            dimension TEXT NOT NULL,
+            dimension_value TEXT NOT NULL,
+            n INTEGER,
+            heildarlaun_medal INTEGER,
+            heildarlaun_midgildi INTEGER,
+            p25 INTEGER,
+            p75 INTEGER,
+            fast_laun INTEGER,
+            yfirvinna INTEGER,
+            bonus INTEGER,
+            source_pdf TEXT NOT NULL,
+            extracted_at DATETIME NOT NULL,
+            UNIQUE(survey_year, member_type, dimension, dimension_value)
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS unions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
