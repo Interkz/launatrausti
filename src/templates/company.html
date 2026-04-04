@@ -25,63 +25,46 @@
 {% endblock %}
 
 {% block content %}
-<a href="/" class="back-link">Back to rankings</a>
+<a href="/" class="back-link">&larr; Til baka</a>
 
+{# ===== Company Hero ===== #}
 <div class="company-header">
     <h1>{{ company.name }}</h1>
-    <p class="kennitala">Kennitala: {{ company.kennitala }}
+    <p class="kennitala">{{ company.kennitala }}
         {% if company.sector %}
-        <span class="badge {% if company.sector == 'public' %}badge-public{% else %}badge-private{% endif %}" style="margin-left: 0.75rem;">{{ company.sector }}</span>
+        <span class="badge {% if company.sector == 'public' %}badge-public{% else %}badge-private{% endif %}" style="margin-left: 0.5rem;">{% if company.sector == 'public' %}Opinbert{% else %}Einkageirinn{% endif %}</span>
         {% endif %}
     </p>
     {% if industry_name %}
-    <p class="industry">Industry: {{ industry_name }}</p>
-    {% endif %}
-    {% if reports %}
-    <p style="margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
-        <span class="source-dot {{ 'real' if reports[0].source_pdf != 'sample_data' else 'sample' }}"></span>
-        Data source: {{ reports[0].source_pdf if reports[0].source_pdf != 'sample_data' else 'Sample data' }}
-    </p>
+    <p class="industry">{{ industry_name }}</p>
     {% endif %}
 </div>
 
-<div class="stats">
-    {% if reports %}
-    {% set latest = reports[0] %}
-    <div class="stat-card">
-        <div class="label">Latest Avg Monthly</div>
-        <div class="value">{{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr</div>
+{# ===== Big Salary Number ===== #}
+{% if reports %}
+{% set latest = reports[0] %}
+{% set company_monthly = latest.avg_salary // 12 %}
+<div style="text-align: center; padding: 2rem 0; margin-bottom: 1.5rem;">
+    <div style="font-family: var(--font-display); font-size: 3rem; font-weight: 700; color: var(--lumon-green); line-height: 1;">
+        {{ "{:,.0f}".format(company_monthly).replace(",", ".") }} <span style="font-size: 1.25rem; font-weight: 500;">kr/mán</span>
     </div>
-    <div class="stat-card">
-        <div class="label">Latest Avg Annual</div>
-        <div class="value">{{ "{:,.0f}".format(latest.avg_salary).replace(",", ".") }} kr</div>
+    <div style="font-family: var(--font-sans); font-size: 0.875rem; color: var(--lumon-text-secondary); margin-top: 0.5rem;">
+        Meðallaun samkvæmt ársreikningi {{ latest.year }}
     </div>
-    <div class="stat-card">
-        <div class="label">Employees ({{ latest.year }})</div>
-        <div class="value">{{ "{:,.0f}".format(latest.starfsmenn).replace(",", ".") }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Total Wage Costs</div>
-        <div class="value">{{ "{:,.0f}".format(latest.launakostnadur // 1000000).replace(",", ".") }}M kr</div>
-    </div>
-    {% endif %}
 </div>
 
+{# ===== Comparison Section ===== #}
 {% if benchmark or national_avg %}
-<div class="card benchmark-card">
+<div class="card">
     <div class="card-header">
-        <h2>Industry Benchmark Comparison</h2>
-        <span class="source">Source: Hagstofa Islands ({{ latest.year if reports else '' }})</span>
+        <h2>Samanburður</h2>
+        <span style="font-size: 0.75rem; color: var(--lumon-text-secondary);">Hagstofa Íslands {{ latest.year }}</span>
     </div>
     <div class="benchmark-grid">
-        {% if reports %}
-        {% set latest = reports[0] %}
-        {% set company_monthly = latest.avg_salary // 12 %}
-
         {% if benchmark %}
         {% set diff_industry = ((company_monthly - benchmark.monthly_wage) / benchmark.monthly_wage * 100) %}
         <div class="benchmark-item">
-            <div class="benchmark-label">vs {{ industry_name or 'Industry' }} Average</div>
+            <div class="benchmark-label">Fyrirtæki vs atvinnugrein</div>
             <div class="benchmark-values">
                 <span class="company-val">{{ "{:,.0f}".format(company_monthly).replace(",", ".") }} kr</span>
                 <span class="vs">vs</span>
@@ -96,7 +79,7 @@
         {% if national_avg %}
         {% set diff_national = ((company_monthly - national_avg.monthly_wage) / national_avg.monthly_wage * 100) %}
         <div class="benchmark-item">
-            <div class="benchmark-label">vs National Average</div>
+            <div class="benchmark-label">Fyrirtæki vs landsmeðaltal</div>
             <div class="benchmark-values">
                 <span class="company-val">{{ "{:,.0f}".format(company_monthly).replace(",", ".") }} kr</span>
                 <span class="vs">vs</span>
@@ -107,91 +90,76 @@
             </div>
         </div>
         {% endif %}
-        {% endif %}
     </div>
 </div>
 {% endif %}
 
-{% if salary_comparison and salary_comparison.get('vr_avg') %}
+{# ===== Facts Grid ===== #}
+<div class="stats" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="stat-card">
+        <div class="label">Starfsmenn ({{ latest.year }})</div>
+        <div class="value">{{ "{:,.0f}".format(latest.starfsmenn).replace(",", ".") }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Launakostnaður</div>
+        <div class="value">{{ "{:,.0f}".format(latest.launakostnadur // 1000000).replace(",", ".") }}M kr</div>
+    </div>
+    {% if financials and financials.get('reports') and financials.reports|length > 0 %}
+    {% set fin_latest = financials.reports[-1] %}
+    <div class="stat-card">
+        <div class="label">Hagnaður/Tap ({{ fin_latest.year }})</div>
+        <div class="value" style="{% if fin_latest.hagnadur is not none and fin_latest.hagnadur < 0 %}color: var(--lumon-accent);{% endif %}">
+            {% if fin_latest.hagnadur is not none %}{{ "{:,.0f}".format(fin_latest.hagnadur // 1000000).replace(",", ".") }}M kr{% else %}&mdash;{% endif %}
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Laun sem % af tekjum</div>
+        <div class="value">
+            {% if fin_latest.laun_hlutfall_tekna is not none %}{{ "{:.1f}".format(fin_latest.laun_hlutfall_tekna * 100) }}%{% else %}&mdash;{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ===== VR Comparison (only if reasonable) ===== #}
+{% if salary_comparison and salary_comparison.get('vr_avg') and salary_comparison.get('diff_pct') is not none %}
+{% if salary_comparison.diff_pct|abs <= 100 %}
 <div class="card">
     <div class="card-header">
-        <h2>VR Salary Survey Comparison</h2>
-        <span class="source">Source: VR Launarannsoekn ({{ salary_comparison.vr_survey_date }})</span>
+        <h2>VR launakönnun</h2>
+        <span style="font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ salary_comparison.vr_survey_date }}</span>
     </div>
     <div class="benchmark-grid">
         <div class="benchmark-item">
-            <div class="benchmark-label">Company Annual Avg vs VR Survey Avg (Monthly x12)</div>
+            <div class="benchmark-label">Fyrirtæki vs VR meðaltal (árs)</div>
             <div class="benchmark-values">
                 <span class="company-val">{{ "{:,.0f}".format(salary_comparison.company_avg_salary).replace(",", ".") }} kr</span>
                 <span class="vs">vs</span>
                 <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_avg * 12).replace(",", ".") }} kr</span>
             </div>
-            {% if salary_comparison.diff_pct is not none %}
             <div class="benchmark-diff {% if salary_comparison.diff_pct >= 0 %}positive{% else %}negative{% endif %}">
                 {% if salary_comparison.diff_pct >= 0 %}+{% endif %}{{ "{:.1f}".format(salary_comparison.diff_pct) }}%
             </div>
-            {% endif %}
-        </div>
-        <div class="benchmark-item">
-            <div class="benchmark-label">VR Survey Range (Monthly)</div>
-            <div class="benchmark-values">
-                <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_min).replace(",", ".") }} kr</span>
-                <span class="vs">to</span>
-                <span class="benchmark-val">{{ "{:,.0f}".format(salary_comparison.vr_max).replace(",", ".") }} kr</span>
-            </div>
-            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
-                Based on {{ salary_comparison.vr_survey_count }} survey positions
-            </div>
         </div>
     </div>
 </div>
 {% endif %}
-
-{% if financials and financials.get('reports') and financials.reports|length > 0 %}
-{% set fin_latest = financials.reports[-1] %}
-<div class="card">
-    <div class="card-header">
-        <h2>Financial Overview</h2>
-        <span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">Fjárhagsgögn</span>
-    </div>
-    <div class="benchmark-grid">
-        <div class="benchmark-item">
-            <div class="benchmark-label">Profit / Loss ({{ fin_latest.year }})</div>
-            <div class="benchmark-values">
-                {% if fin_latest.hagnadur is not none %}
-                <span class="company-val" style="{% if fin_latest.hagnadur < 0 %}color: var(--lumon-accent);{% endif %}">{{ "{:,.0f}".format(fin_latest.hagnadur // 1000000).replace(",", ".") }}M kr</span>
-                {% else %}
-                <span class="benchmark-val">N/A</span>
-                {% endif %}
-            </div>
-        </div>
-        <div class="benchmark-item">
-            <div class="benchmark-label">Salary as % of Revenue ({{ fin_latest.year }})</div>
-            <div class="benchmark-values">
-                {% if fin_latest.laun_hlutfall_tekna is not none %}
-                <span class="company-val">{{ "{:.1f}".format(fin_latest.laun_hlutfall_tekna * 100) }}%</span>
-                {% else %}
-                <span class="benchmark-val">N/A</span>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
 {% endif %}
 
+{# ===== Ársreikningar ===== #}
 <div class="card">
     <div class="card-header">
-        <h2>Annual Reports</h2>
+        <h2>Ársreikningar</h2>
     </div>
     <table>
         <thead>
             <tr>
-                <th>Year</th>
-                <th>Avg Monthly Salary</th>
-                <th>Avg Annual Salary</th>
-                <th>Employees</th>
-                <th>Total Wage Costs</th>
-                <th>Revenue</th>
+                <th>Ár</th>
+                <th>Meðallaun/mán</th>
+                <th>Meðallaun/ár</th>
+                <th>Starfsmenn</th>
+                <th>Launakostnaður</th>
+                <th>Tekjur</th>
             </tr>
         </thead>
         <tbody>
@@ -202,12 +170,12 @@
                 <td>{{ "{:,.0f}".format(report.avg_salary).replace(",", ".") }} kr</td>
                 <td>{{ "{:,.0f}".format(report.starfsmenn).replace(",", ".") }}</td>
                 <td>{{ "{:,.0f}".format(report.launakostnadur // 1000000).replace(",", ".") }}M kr</td>
-                <td>{% if report.tekjur %}{{ "{:,.0f}".format(report.tekjur // 1000000).replace(",", ".") }}M kr{% else %}-{% endif %}</td>
+                <td>{% if report.tekjur %}{{ "{:,.0f}".format(report.tekjur // 1000000).replace(",", ".") }}M kr{% else %}&mdash;{% endif %}</td>
             </tr>
             {% else %}
             <tr>
                 <td colspan="6" style="text-align: center; padding: 3rem; color: var(--lumon-text-secondary);">
-                    No annual reports found.
+                    Engir ársreikningar fundust.
                 </td>
             </tr>
             {% endfor %}
@@ -215,69 +183,59 @@
     </table>
 </div>
 
+{# ===== Launaþróun ===== #}
 {% if reports|length > 1 %}
-<div class="card" style="margin-top: 1.5rem;">
+{% set first = reports[-1] %}
+{% set change = ((latest.avg_salary - first.avg_salary) / first.avg_salary * 100) if first.avg_salary else 0 %}
+<div class="card">
     <div class="card-header">
-        <h2>Salary Trend</h2>
+        <h2>Launaþróun</h2>
     </div>
-    <div style="padding: 1.5rem 2rem;">
-        {% set first = reports[-1] %}
-        {% set latest = reports[0] %}
-        {% set change = ((latest.avg_salary - first.avg_salary) / first.avg_salary * 100) if first.avg_salary else 0 %}
+    <div style="padding: 1.25rem 1.5rem;">
         <p style="font-family: var(--font-sans); font-size: 0.9375rem;">
-            From {{ first.year }} to {{ latest.year }}:
+            {{ first.year }} til {{ latest.year }}:
             <span class="trend-arrow {% if change >= 0 %}up{% else %}down{% endif %}">
                 {{ "{:.1f}".format(change|abs) }}%
             </span>
-            change in average salary.
+            breyting á meðallaunum.
         </p>
-        <p style="margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);">
-            {{ first.year }}: {{ "{:,.0f}".format(first.avg_salary // 12).replace(",", ".") }} kr/month
+        <p style="margin-top: 0.5rem; font-size: 0.8125rem; color: var(--lumon-text-secondary);">
+            {{ first.year }}: {{ "{:,.0f}".format(first.avg_salary // 12).replace(",", ".") }} kr/mán
             &rarr;
-            {{ latest.year }}: {{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr/month
+            {{ latest.year }}: {{ "{:,.0f}".format(latest.avg_salary // 12).replace(",", ".") }} kr/mán
         </p>
-        {% if financials and financials.get('trends') %}
-        {% if financials.trends.get('salary_cagr') is not none %}
-        <p style="margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
-            Salary CAGR: <span class="trend-arrow {% if financials.trends.salary_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.salary_cagr * 100) }}%</span>
+        {% if financials and financials.get('trends') and financials.trends.get('salary_cagr') is not none %}
+        <p style="margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
+            CAGR launa: <span class="trend-arrow {% if financials.trends.salary_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.salary_cagr * 100) }}%</span>
             {% if financials.trends.get('revenue_cagr') is not none %}
-            // Revenue CAGR: <span class="trend-arrow {% if financials.trends.revenue_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.revenue_cagr * 100) }}%</span>
+            · CAGR tekna: <span class="trend-arrow {% if financials.trends.revenue_cagr >= 0 %}up{% else %}down{% endif %}">{{ "{:.1f}".format(financials.trends.revenue_cagr * 100) }}%</span>
             {% endif %}
         </p>
-        {% endif %}
         {% endif %}
     </div>
 </div>
 {% endif %}
+{% endif %}
 
+{# ===== Laus störf ===== #}
 {% if jobs %}
-<div class="card" style="margin-top: 2rem;">
+<div class="card">
     <div class="card-header">
-        <h2>Laus storf</h2>
-        <span class="source">{{ jobs|length }} storf</span>
+        <h2>Laus störf</h2>
+        <span style="font-size: 0.75rem; color: var(--lumon-text-secondary);">{{ jobs|length }} störf</span>
     </div>
     {% for job in jobs %}
-    <div style="padding: 1rem 2rem; border-bottom: 1px solid var(--lumon-grid); {% if loop.index is odd %}background: var(--lumon-white);{% else %}background: rgba(240, 240, 236, 0.5);{% endif %}">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-family: var(--font-display); color: var(--lumon-green);">{{ job.title }}</span>
-                {% if job.employment_type %}
-                <span class="badge badge-private" style="margin-left: 0.5rem;">{{ job.employment_type }}</span>
-                {% endif %}
-                {% if job.location %}
-                <span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); margin-left: 0.5rem;">{{ job.location }}</span>
-                {% endif %}
-            </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                {% if job.estimated_salary %}
-                <span class="salary" style="font-size: 0.875rem;">{{ "{:,.0f}".format(job.estimated_salary).replace(",", ".") }} kr</span>
-                {% endif %}
-                {% if job.source_url %}
-                <a href="{{ job.source_url }}" target="_blank" rel="noopener" style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--lumon-green-muted); text-decoration: none;">Skoða &#8594;</a>
-                {% endif %}
-            </div>
+    <a href="{{ job.source_url or '/jobs' }}" {% if job.source_url %}target="_blank" rel="noopener"{% endif %} style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--lumon-border); text-decoration: none; color: var(--lumon-black); transition: background 0.15s;">
+        <div>
+            <span style="font-weight: 500;">{{ job.title }}</span>
+            {% if job.location %}
+            <span style="font-size: 0.75rem; color: var(--lumon-text-secondary); margin-left: 0.5rem;">{{ job.location }}</span>
+            {% endif %}
         </div>
-    </div>
+        {% if job.estimated_salary %}
+        <span style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--lumon-green); font-weight: 500;">~{{ "{:,.0f}".format(job.estimated_salary).replace(",", ".") }} kr</span>
+        {% endif %}
+    </a>
     {% endfor %}
 </div>
 {% endif %}

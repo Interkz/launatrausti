@@ -128,55 +128,39 @@
 {% endif %}
 
 {# ==================== SCREEN 5: Rankings (below the fold) ==================== #}
-<div class="rankings-section" {% if salary %}style="margin-top: 4rem; padding-top: 2rem; border-top: 2px solid var(--lumon-grid);"{% endif %}>
-    <div class="card">
-        <div class="card-header">
-            <h2>Opinber fyrirtæki</h2>
-            <div style="display: flex; gap: 1rem; align-items: center;">
-                <div class="year-filter">
-                    <a href="/?{% if salary %}salary={{ salary }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Nýjast</a>
-                    {% for year in years %}
-                    <a href="/?year={{ year }}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
-                    {% endfor %}
-                </div>
-            </div>
+<div class="rankings-section" {% if salary %}style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--lumon-border);"{% endif %}>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem;">
+        <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.5rem; color: var(--lumon-green);">Opinber fyrirtæki</h2>
+            <p style="font-size: 0.8125rem; color: var(--lumon-text-secondary); margin-top: 0.25rem;">
+                Gögn úr opinberum ársreikningum · <span style="color: var(--lumon-green); font-weight: 500;">Einkageirinn kemur fljótlega</span>
+            </p>
         </div>
-        <div style="padding: 0.75rem 2rem; border-bottom: 1px solid var(--lumon-grid); background: var(--lumon-paper); font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary);">
-            Gögn úr opinberum ársreikningum. <strong style="color: var(--lumon-green);">Einkageirinn kemur fljótlega.</strong>
+        <div class="year-filter">
+            <a href="/?{% if salary %}salary={{ salary }}{% endif %}" {% if not selected_year %}class="active"{% endif %}>Nýjast</a>
+            {% for year in years %}
+            <a href="/?year={{ year }}{% if salary %}&salary={{ salary }}{% endif %}" {% if selected_year == year %}class="active"{% endif %}>{{ year }}</a>
+            {% endfor %}
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 80px;">Nr.</th>
-                    <th>Fyrirtæki</th>
-                    <th>Meðallaun/mán.</th>
-                    <th>Meðallaun/ár</th>
-                    <th style="text-align: right;">Starfsmenn</th>
-                    <th style="text-align: right; width: 100px;">Ár</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for company in companies %}
-                <tr>
-                    <td class="rank">{{ "%02d"|format(loop.index) }}</td>
-                    <td class="company-name">
-                        <span class="source-dot {{ 'real' if company.get('source_pdf') and company.get('source_pdf') != 'sample_data' else 'sample' }}"></span><a href="/company/{{ company.id }}">{{ company.name }}</a>
-                    </td>
-                    <td class="salary" style="font-weight: 600; {% if avg_monthly %}color: {% if company.avg_salary // 12 >= avg_monthly %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};{% endif %}">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr</td>
-                    <td class="salary-annual">{{ "{:,.0f}".format(company.avg_salary).replace(",", ".") }} kr</td>
-                    <td class="employees" style="text-align: right;">{{ "{:,.0f}".format(company.starfsmenn).replace(",", ".") }}</td>
-                    <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary);">{{ company.year }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 4rem 2rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--lumon-text-secondary); text-transform: uppercase; letter-spacing: 0.1em;">
-                        Engin gögn fundust
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
+
+    <div class="ranking-list">
+        {% for company in companies[:20] %}
+        <a href="/company/{{ company.id }}" class="ranking-row">
+            <span class="ranking-row__rank">{{ loop.index }}</span>
+            <span class="ranking-row__name">{{ company.name }}</span>
+            <span class="ranking-row__salary">{{ "{:,.0f}".format(company.avg_salary // 12).replace(",", ".") }} kr/mán</span>
+            <span class="ranking-row__meta">{{ "{:,.0f}".format(company.starfsmenn).replace(",", ".") }} starfsm. · {{ company.year }}</span>
+        </a>
+        {% else %}
+        <div style="text-align: center; padding: 3rem; color: var(--lumon-text-secondary);">Engin gögn fundust</div>
+        {% endfor %}
+    </div>
+    {% if companies|length > 20 %}
+    <div style="text-align: center; margin-top: 1rem;">
+        <a href="/?{% if selected_year %}year={{ selected_year }}{% endif %}" style="font-family: var(--font-sans); font-size: 0.875rem; color: var(--lumon-green); text-decoration: none; font-weight: 500;">Sjá öll {{ companies|length }} fyrirtæki &rarr;</a>
+    </div>
+    {% endif %}
 </div>
 
 <script>

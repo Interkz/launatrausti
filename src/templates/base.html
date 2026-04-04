@@ -27,7 +27,7 @@
             --lumon-green-light: #2a5c47;
             --lumon-green-muted: #3d6b58;
             --lumon-grid: #c8c8c4;
-            --lumon-grid-dark: #1a3d2e;
+            --lumon-border: rgba(29,75,57,.14);
             --lumon-text-secondary: #5a5a56;
             --lumon-accent: #8b4513;
 
@@ -68,33 +68,7 @@
             position: relative;
         }
 
-        /* Subtle paper texture overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 79px,
-                    var(--lumon-grid) 79px,
-                    var(--lumon-grid) 80px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    transparent,
-                    transparent 79px,
-                    var(--lumon-grid) 79px,
-                    var(--lumon-grid) 80px
-                );
-            opacity: 0.3;
-            pointer-events: none;
-            z-index: 0;
-        }
+        /* Grid texture removed — was adding noise not character */
 
         .container {
             max-width: 1400px;
@@ -164,12 +138,14 @@
         nav {
             display: flex;
             gap: 0;
-            border: 1px solid var(--lumon-green);
+            border: 1px solid var(--lumon-border);
+            border-radius: 2px;
         }
 
         nav a {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 0.8125rem;
             color: var(--lumon-green);
             text-decoration: none;
             padding: 0.625rem 1.25rem;
@@ -230,10 +206,10 @@
         /* Card — The Ledger */
         .card {
             background: var(--lumon-white);
-            border: 1px solid rgba(26, 61, 46, 0.15);
+            border: 1px solid var(--lumon-border);
+            border-radius: 2px;
             box-shadow: var(--shadow-card);
-            margin-bottom: 3rem;
-            position: relative;
+            margin-bottom: 2rem;
             transition: box-shadow 0.2s ease;
         }
 
@@ -241,24 +217,12 @@
             box-shadow: var(--shadow-hover);
         }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border: 1px solid var(--lumon-grid);
-            pointer-events: none;
-        }
-
         .card-header {
-            padding: 1.25rem 2rem;
-            border-bottom: 2px solid var(--lumon-green);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--lumon-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--lumon-paper);
         }
 
         .card-header h2 {
@@ -563,23 +527,11 @@
         footer {
             margin-top: 4rem;
             padding: 2rem 0;
-            border-top: 2px solid var(--lumon-green);
-            position: relative;
-        }
-
-        footer::before {
-            content: '';
-            position: absolute;
-            top: -5px;
-            left: 0;
-            width: 100%;
-            height: 1px;
-            background: var(--lumon-green);
-            opacity: 0.4;
+            border-top: 1px solid var(--lumon-border);
         }
 
         footer p {
-            font-family: var(--font-mono);
+            font-family: var(--font-sans);
             font-size: 0.6875rem;
             color: var(--lumon-text-secondary);
             text-transform: uppercase;
@@ -609,55 +561,34 @@
         }
 
         /* Responsive */
-        @media (max-width: 900px) {
-            .container {
-                padding: 0 1.5rem;
-            }
+        @media (max-width: 768px) {
+            .container { padding: 0 1rem; }
 
-            .stats {
-                grid-template-columns: 1fr;
-            }
+            .stats { grid-template-columns: 1fr; }
+            .stat-card { border-right: none; border-bottom: 1px solid var(--lumon-border); }
+            .stat-card:last-child { border-bottom: none; }
 
-            .stat-card {
-                border-right: none;
-                border-bottom: 1px solid var(--lumon-green);
-            }
+            .header-top { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            header { padding: 1.5rem 0 1rem; margin-bottom: 1.5rem; }
+            header h1 { font-size: 1.75rem; }
 
-            .stat-card:last-child {
-                border-bottom: none;
-            }
+            nav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+            nav a { font-size: 0.75rem; padding: 0.5rem 0.75rem; white-space: nowrap; min-height: 44px; display: flex; align-items: center; }
 
-            .header-top {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1.5rem;
-            }
+            th, td { padding: 0.5rem 0.75rem; font-size: 0.8125rem; }
+            table { display: block; overflow-x: auto; }
 
-            th, td {
-                padding: 0.75rem 1rem;
-            }
+            .card-header { padding: 0.75rem 1rem; }
+            .card-header h2 { font-size: 1rem; }
 
-            .footer-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
+            .benchmark-grid { grid-template-columns: 1fr; }
+            .benchmark-item { padding: 1rem; }
 
-            .footer-meta {
-                text-align: left;
-            }
+            .footer-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .footer-meta { text-align: left; }
 
-            .hide-mobile {
-                display: none !important;
-            }
-
-            nav {
-                flex-wrap: wrap;
-            }
-
-            nav a {
-                font-size: 0.65rem;
-                padding: 0.5rem 0.75rem;
-            }
+            .hide-mobile { display: none !important; }
+            .content-with-sidebar { grid-template-columns: 1fr; }
         }
 
         /* Percentile bar */
@@ -690,8 +621,6 @@
 
         /* Content with sidebar layout */
         .content-with-sidebar { display: grid; grid-template-columns: 200px 1fr; gap: 2rem; }
-        @media (max-width: 900px) { .content-with-sidebar { grid-template-columns: 1fr; } }
-
         /* ===== Reusable Component Library ===== */
 
         /* Page Header */
@@ -905,8 +834,8 @@
         .source-attribution p { color: var(--lumon-text-secondary); font-family: var(--font-mono); font-size: 0.6875rem; }
         .source-attribution a { color: var(--lumon-accent); }
 
-        /* Mobile overrides for new components */
-        @media (max-width: 900px) {
+        /* Mobile overrides for samanburdur components */
+        @media (max-width: 768px) {
             .percentile-result { flex-direction: column; }
             .percentile-result__salary { border-right: none; border-bottom: 1px solid rgba(26, 61, 46, 0.1); padding: 1.5rem; }
             .percentile-result__salary-value { font-size: 2rem; }
@@ -922,13 +851,7 @@
 
         /* Print styles */
         @media print {
-            body::before {
-                display: none;
-            }
-
-            .card::before {
-                display: none;
-            }
+            nav, footer { display: none; }
         }
 
         /* ===== Homepage Hero ===== */
@@ -1202,6 +1125,31 @@
         .company-row__detail { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--lumon-text-secondary); width: 100%; }
 
         .rankings-section { margin-top: 2rem; }
+
+        /* Ranking row cards */
+        .ranking-list { display: flex; flex-direction: column; gap: 2px; }
+        .ranking-row {
+            display: grid;
+            grid-template-columns: 2.5rem 1fr auto auto;
+            gap: 1rem;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            color: var(--lumon-black);
+            border-bottom: 1px solid var(--lumon-border);
+            transition: background 0.15s;
+        }
+        .ranking-row:hover { background: var(--lumon-paper); }
+        .ranking-row__rank { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--lumon-text-secondary); text-align: center; }
+        .ranking-row__name { font-family: var(--font-sans); font-weight: 600; font-size: 0.9375rem; }
+        .ranking-row__salary { font-family: var(--font-mono); font-size: 0.9375rem; font-weight: 600; color: var(--lumon-green); white-space: nowrap; }
+        .ranking-row__meta { font-family: var(--font-sans); font-size: 0.75rem; color: var(--lumon-text-secondary); white-space: nowrap; }
+
+        @media (max-width: 768px) {
+            .ranking-row { grid-template-columns: 2rem 1fr; gap: 0.5rem; }
+            .ranking-row__salary { grid-column: 2; font-size: 0.875rem; }
+            .ranking-row__meta { grid-column: 2; }
+        }
 
         @media (max-width: 600px) {
             .hero { padding: 2.5rem 0.5rem 2rem; margin: -2rem -1rem 1.5rem -1rem; }

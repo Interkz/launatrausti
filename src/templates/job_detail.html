@@ -43,9 +43,9 @@
                     <span class="badge badge-private">{{ job.employment_type }}</span>
                     {% endif %}
                     {% if job.remote_policy %}
-                    <span class="badge" style="background: {% if job.remote_policy == 'remote' %}#2563eb{% elif job.remote_policy == 'hybrid' %}#7c3aed{% else %}var(--lumon-green){% endif %}; color: white; border-color: transparent;">{{ job.remote_policy }}</span>
+                    <span class="badge" style="background: {% if job.remote_policy == 'remote' %}var(--lumon-green-muted){% elif job.remote_policy == 'hybrid' %}var(--lumon-accent){% else %}var(--lumon-green){% endif %}; color: white; border-color: transparent;">{{ job.remote_policy }}</span>
                     {% endif %}
-                    <span class="badge" style="border-color: {% if job.source == 'alfred' %}#2563eb{% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}#7c3aed{% endif %}; color: {% if job.source == 'alfred' %}#2563eb{% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}#7c3aed{% endif %};">{{ job.source }}</span>
+                    <span class="badge" style="border-color: {% if job.source == 'alfred' %}var(--lumon-green-muted){% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}var(--lumon-accent){% endif %}; color: {% if job.source == 'alfred' %}var(--lumon-green-muted){% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}var(--lumon-accent){% endif %};">{{ job.source }}</span>
                 </div>
             </div>
         </div>
@@ -222,7 +222,7 @@
                     <span></span>
                     {% endif %}
                     {% if r.remote_policy %}
-                    <span class="badge" style="font-size: 0.5rem; background: {% if r.remote_policy == 'remote' %}#2563eb{% elif r.remote_policy == 'hybrid' %}#7c3aed{% else %}var(--lumon-green){% endif %}; color: white; border-color: transparent;">{{ r.remote_policy }}</span>
+                    <span class="badge" style="font-size: 0.5rem; background: {% if r.remote_policy == 'remote' %}var(--lumon-green-muted){% elif r.remote_policy == 'hybrid' %}var(--lumon-accent){% else %}var(--lumon-green){% endif %}; color: white; border-color: transparent;">{{ r.remote_policy }}</span>
                     {% endif %}
                 </div>
             </a>

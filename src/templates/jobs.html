@@ -138,7 +138,7 @@
                 {% if job.employer_logo %}
                 <img src="{{ job.employer_logo }}" alt="" loading="lazy" style="width: 48px; height: 48px; object-fit: contain; border: 1px solid var(--lumon-grid); background: white; flex-shrink: 0;">
                 {% else %}
-                <div style="width: 48px; height: 48px; background: {% if job.source == 'starfatorg' %}var(--lumon-green){% elif job.source == 'tvinna' %}#7c3aed{% else %}var(--lumon-green-light){% endif %}; color: var(--lumon-white); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; flex-shrink: 0;">{{ job.employer_name[0] if job.employer_name else '?' }}</div>
+                <div style="width: 48px; height: 48px; background: {% if job.source == 'starfatorg' %}var(--lumon-green){% elif job.source == 'tvinna' %}var(--lumon-accent){% else %}var(--lumon-green-light){% endif %}; color: var(--lumon-white); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; flex-shrink: 0;">{{ job.employer_name[0] if job.employer_name else '?' }}</div>
                 {% endif %}
 
                 <div style="flex: 1; min-width: 0;">
@@ -156,12 +156,12 @@
                     </div>
                     <div style="display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; margin-top: 0.375rem;">
                         {% if job.remote_policy %}
-                        <span style="font-family: var(--font-mono); font-size: 0.5625rem; padding: 0.125rem 0.5rem; color: white; background: {% if job.remote_policy == 'remote' %}#2563eb{% elif job.remote_policy == 'hybrid' %}#7c3aed{% else %}var(--lumon-green){% endif %}; text-transform: uppercase; letter-spacing: 0.05em;">{{ job.remote_policy }}</span>
+                        <span style="font-family: var(--font-mono); font-size: 0.5625rem; padding: 0.125rem 0.5rem; color: white; background: {% if job.remote_policy == 'remote' %}var(--lumon-green-muted){% elif job.remote_policy == 'hybrid' %}var(--lumon-accent){% else %}var(--lumon-green){% endif %}; text-transform: uppercase; letter-spacing: 0.05em;">{{ job.remote_policy }}</span>
                         {% endif %}
                         {% if job.employment_type %}
                         <span class="badge badge-private" style="font-size: 0.5rem;">{{ job.employment_type }}</span>
                         {% endif %}
-                        <span style="font-family: var(--font-mono); font-size: 0.5rem; padding: 0.125rem 0.375rem; border: 1px solid {% if job.source == 'alfred' %}#2563eb{% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}#7c3aed{% endif %}; color: {% if job.source == 'alfred' %}#2563eb{% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}#7c3aed{% endif %}; text-transform: uppercase; letter-spacing: 0.05em;">{{ job.source }}</span>
+                        <span style="font-family: var(--font-mono); font-size: 0.5rem; padding: 0.125rem 0.375rem; border: 1px solid {% if job.source == 'alfred' %}var(--lumon-green-muted){% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}var(--lumon-accent){% endif %}; color: {% if job.source == 'alfred' %}var(--lumon-green-muted){% elif job.source == 'starfatorg' %}var(--lumon-green){% else %}var(--lumon-accent){% endif %}; text-transform: uppercase; letter-spacing: 0.05em;">{{ job.source }}</span>
                         {% if job.deadline %}
                         <span style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--lumon-text-secondary); margin-left: auto;">{{ job.deadline }}</span>
                         {% endif %}
