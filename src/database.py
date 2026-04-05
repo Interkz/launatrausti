@@ -992,6 +992,27 @@ def get_occupation_detail(isco_code: str, salary_type: str = "heildarlaun") -> l
     return [dict(r) for r in rows]
 
 
+def get_occupation_by_isco(isco_code: str, year: int = 2024, salary_type: str = "heildarlaun") -> Optional[dict]:
+    """Get a single occupation's salary data for a specific year."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT isco_code, occupation_name, year, mean, median, p25, p75, p10, p90, observation_count
+        FROM hagstofa_occupations
+        WHERE isco_code = ? AND year = ? AND salary_type = ?
+    """, (isco_code, year, salary_type))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    occ = dict(row)
+    # Guard against broken percentile ordering (34 rows where p90 < p75)
+    if occ.get("p90") and occ.get("p75") and occ["p90"] < occ["p75"]:
+        occ["p10"] = None
+        occ["p90"] = None
+    return occ
+
+
 def get_occupation_categories() -> list[dict]:
     """Get distinct ISCO major groups (first digit) with counts."""
     conn = get_connection()

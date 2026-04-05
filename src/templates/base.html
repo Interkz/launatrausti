@@ -1151,6 +1151,183 @@
             .ranking-row__meta { grid-column: 2; }
         }
 
+        /* Calculator (reiknivel) */
+        .calc-options {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .calc-option {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .calc-option label {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+        }
+        .calc-option select {
+            font-family: var(--font-sans);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.5rem;
+            border: 1px solid var(--lumon-grid);
+            background: var(--lumon-white);
+            color: var(--lumon-black);
+            border-radius: 0;
+        }
+
+        .breakdown {
+            max-width: 520px;
+            margin: 0 auto;
+            border: 1px solid var(--lumon-grid);
+            background: var(--lumon-white);
+        }
+        .breakdown__row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 0.625rem 1.25rem;
+            border-bottom: 1px solid var(--lumon-border);
+        }
+        .breakdown__label {
+            font-family: var(--font-sans);
+            font-size: 0.9375rem;
+        }
+        .breakdown__amount {
+            font-family: var(--font-mono);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .breakdown__row--deduction .breakdown__amount { color: var(--salary-low); }
+        .breakdown__row--credit {
+            padding-top: 0;
+            padding-bottom: 0.375rem;
+        }
+        .breakdown__row--credit .breakdown__label {
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
+        }
+        .breakdown__row--credit .breakdown__amount {
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
+            font-weight: 400;
+        }
+        .breakdown__row--total {
+            border-bottom: none;
+            border-top: 2px solid var(--lumon-green);
+            background: var(--lumon-paper);
+        }
+        .breakdown__row--total .breakdown__label {
+            font-weight: 700;
+            color: var(--lumon-green);
+        }
+        .breakdown__row--total .breakdown__amount {
+            color: var(--lumon-green);
+            font-size: 1.125rem;
+        }
+        .breakdown__summary {
+            text-align: center;
+            padding: 0.5rem 1.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
+            background: var(--lumon-paper);
+        }
+
+        .insight-box {
+            max-width: 520px;
+            margin: 1rem auto 0;
+            padding: 0.875rem 1.25rem;
+            border: 1px solid var(--gold-border);
+            background: var(--gold-light);
+            text-align: center;
+        }
+        .insight-box__amount {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--gold);
+        }
+        .insight-box__text {
+            font-family: var(--font-sans);
+            font-size: 0.8125rem;
+            color: var(--lumon-text-secondary);
+        }
+
+        .calc-occupation-form { margin-top: 0.75rem; }
+        .calc-occupation-select {
+            width: 100%;
+            font-family: var(--font-sans);
+            font-size: 0.875rem;
+            padding: 0.5rem;
+            border: 1px solid var(--lumon-grid);
+            background: var(--lumon-white);
+            color: var(--lumon-black);
+        }
+
+        .occ-detail {
+            margin-top: 1rem;
+            padding: 1rem 1.25rem;
+            border: 1px solid var(--lumon-grid);
+            background: var(--lumon-white);
+        }
+        .occ-detail__name {
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            color: var(--lumon-green);
+            margin-bottom: 0.75rem;
+        }
+        .occ-detail__stats {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+        }
+        .occ-stat {
+            text-align: center;
+        }
+        .occ-stat__label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+            margin-bottom: 0.25rem;
+        }
+        .occ-stat__value {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--lumon-black);
+        }
+        .occ-stat--primary .occ-stat__value {
+            font-size: 1.25rem;
+            color: var(--lumon-green);
+        }
+        .occ-detail__compare {
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .occ-compare--above { color: var(--salary-high); }
+        .occ-compare--below { color: var(--salary-low); }
+        .occ-detail__source {
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--lumon-text-secondary);
+            letter-spacing: 0.05em;
+        }
+
         @media (max-width: 600px) {
             .hero { padding: 2.5rem 0.5rem 2rem; margin: -2rem -1rem 1.5rem -1rem; }
             .hero__title { font-size: 2.25rem; }
@@ -1158,6 +1335,9 @@
             .hero__input { font-size: 1.25rem; }
             .hero__button { width: 100%; }
             .percentile-banner__number { font-size: 3rem; }
+            .calc-options { flex-direction: column; gap: 0.75rem; }
+            .occ-detail__stats { gap: 1rem; }
+            .breakdown__row { padding: 0.5rem 0.75rem; }
         }
     </style>
 </head>
@@ -1178,6 +1358,7 @@
                 <a href="/benchmarks" {% if '/benchmarks' in request.path %}class="active"{% endif %}>Atvinnugreinar</a>
                 <a href="/jobs" {% if '/jobs' in request.path %}class="active"{% endif %}>Störf</a>
                 <a href="/stettarfelog" {% if '/stettarfelog' in request.path %}class="active"{% endif %}>Stéttarfélög</a>
+                <a href="/reiknivel" {% if '/reiknivel' in request.path %}class="active"{% endif %}>Reiknivél</a>
             </nav>
         </header>
 

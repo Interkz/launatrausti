@@ -467,6 +467,76 @@ async def api_unions():
     return {"unions": unions, "count": len(unions)}
 
 
+@app.get("/reiknivel", response_class=HTMLResponse)
+async def reiknivel(
+    request: Request,
+    salary: Optional[int] = None,
+    isco: Optional[str] = None,
+    spigg: Optional[int] = None,
+    felag: Optional[str] = None,
+):
+    """Take-home salary calculator (launareiknivél)."""
+    from .tax import calculate_net_salary
+
+    breakdown = None
+    raise_insight = None
+    occupation = None
+    percentile = None
+
+    # Load occupations and unions for selectors
+    all_occupations = database.get_all_occupations_flat(year=2024, salary_type="heildarlaun")
+    unions = database.get_all_unions()
+
+    # Convert user-facing params to decimals
+    supp_pct = (spigg / 100.0) if spigg and 0 < spigg <= 4 else 0.0
+
+    # Look up union fee if specified
+    union_fee_pct = 0.007  # default VR rate
+    if felag:
+        for u in unions:
+            if u.get("name") == felag and u.get("fee_pct"):
+                union_fee_pct = u["fee_pct"]
+                break
+
+    if salary and salary > 0:
+        breakdown = calculate_net_salary(salary, supp_pct, union_fee_pct)
+
+        # Raise insight: how much more in pocket from +50k gross
+        raised = calculate_net_salary(salary + 50_000, supp_pct, union_fee_pct)
+        raise_insight = raised.net - breakdown.net
+
+        # Cross-occupation percentile
+        all_medians = [o.get("median") for o in all_occupations if o.get("median")]
+        if all_medians:
+            below = sum(1 for m in all_medians if m < salary)
+            percentile = round(below / len(all_medians) * 100)
+
+    # Occupation detail if selected
+    if isco:
+        occupation = database.get_occupation_by_isco(isco, year=2024)
+        if occupation:
+            occupation["display_name"] = re.sub(
+                r'^\d[\d\s*]*\s+', '', occupation.get("occupation_name", "")
+            )
+
+    return templates.TemplateResponse(
+        "reiknivel.html",
+        {
+            "request": request,
+            "salary": salary,
+            "spigg": spigg or 0,
+            "felag": felag or "",
+            "breakdown": breakdown,
+            "raise_insight": raise_insight,
+            "percentile": percentile,
+            "occupation": occupation,
+            "occupations": all_occupations,
+            "unions": unions,
+            "total_occupations": len(all_occupations),
+        },
+    )
+
+
 @app.get("/jobs", response_class=HTMLResponse)
 async def jobs_page(
     request: Request,

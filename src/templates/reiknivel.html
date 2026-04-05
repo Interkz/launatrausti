@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Launareiknivél — Launatrausti{% endblock %}
+
+{% block og_meta %}
+<meta property="og:title" content="Launareiknivél — Hvað færðu útborgað?">
+<meta property="og:description" content="Reiknaðu nettólaun þín eftir skatt, lífeyri og stéttarfélagsgjöld. Staðgreiðsla 2026.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Launatrausti">
+<meta property="og:url" content="https://launatrausti.is/reiknivel">
+<meta name="description" content="Launareiknivél — Reiknaðu nettólaun þín eftir skatt, lífeyri og stéttarfélagsgjöld. Staðgreiðsla 2026.">
+<link rel="canonical" href="https://launatrausti.is/reiknivel">
+{% endblock %}
+
+{% block content %}
+
+{# ==================== HERO: Calculator Input ==================== #}
+<div class="hero">
+    <h1 class="hero__title">Hvað færðu útborgað?</h1>
+    <p class="hero__subtitle">Staðgreiðsla 2026 · Skattur, lífeyrir, stéttarfélagsgjald</p>
+    <form method="get" action="/reiknivel" class="hero__form">
+        <input type="hidden" name="salary" id="salary-value" value="{{ salary or '' }}">
+        <div class="hero__input-wrap">
+            <input type="text" inputmode="numeric" id="salary-display"
+                placeholder="t.d. 700.000"
+                class="hero__input"
+                value="{% if salary %}{{ '{:,.0f}'.format(salary).replace(',', '.') }}{% endif %}"
+                autocomplete="off">
+            <span class="hero__unit">kr/mán</span>
+            <button type="submit" class="hero__button">Reikna</button>
+        </div>
+        <div class="calc-options">
+            <div class="calc-option">
+                <label for="spigg">Séreignarsparnaður</label>
+                <select name="spigg" id="spigg">
+                    <option value="0" {% if spigg == 0 %}selected{% endif %}>0%</option>
+                    <option value="2" {% if spigg == 2 %}selected{% endif %}>2%</option>
+                    <option value="4" {% if spigg == 4 %}selected{% endif %}>4%</option>
+                </select>
+            </div>
+            <div class="calc-option">
+                <label for="felag">Stéttarfélag</label>
+                <select name="felag" id="felag">
+                    <option value="">VR (0,70%)</option>
+                    {% for u in unions %}
+                    <option value="{{ u.name }}" {% if felag == u.name %}selected{% endif %}>
+                        {{ u.name }}{% if u.fee_pct %} ({{ '{:.2f}'.format(u.fee_pct * 100).replace('.', ',') }}%){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if breakdown %}
+{# ==================== SECTION 1: Take-Home Breakdown ==================== #}
+<div class="results-section">
+    <div class="breakdown">
+        <div class="breakdown__row">
+            <span class="breakdown__label">Heildarlaun (brúttó)</span>
+            <span class="breakdown__amount">{{ "{:,.0f}".format(breakdown.gross).replace(",", ".") }} kr</span>
+        </div>
+        <div class="breakdown__row breakdown__row--deduction">
+            <span class="breakdown__label">Lífeyrissjóður (4,0%)</span>
+            <span class="breakdown__amount">&minus;{{ "{:,.0f}".format(breakdown.mandatory_pension).replace(",", ".") }} kr</span>
+        </div>
+        {% if breakdown.supplemental_pension > 0 %}
+        <div class="breakdown__row breakdown__row--deduction">
+            <span class="breakdown__label">Séreignarsparnaður ({{ spigg }}%)</span>
+            <span class="breakdown__amount">&minus;{{ "{:,.0f}".format(breakdown.supplemental_pension).replace(",", ".") }} kr</span>
+        </div>
+        {% endif %}
+        <div class="breakdown__row breakdown__row--deduction">
+            <span class="breakdown__label">Tekjuskattur og útsvar</span>
+            <span class="breakdown__amount">&minus;{{ "{:,.0f}".format(breakdown.tax_after_credit).replace(",", ".") }} kr</span>
+        </div>
+        <div class="breakdown__row breakdown__row--credit">
+            <span class="breakdown__label">&nbsp;&nbsp;persónuafsláttur</span>
+            <span class="breakdown__amount">&minus;{{ "{:,.0f}".format(breakdown.personal_tax_credit).replace(",", ".") }} kr</span>
+        </div>
+        <div class="breakdown__row breakdown__row--deduction">
+            <span class="breakdown__label">Stéttarfélagsgjald</span>
+            <span class="breakdown__amount">&minus;{{ "{:,.0f}".format(breakdown.union_fee).replace(",", ".") }} kr</span>
+        </div>
+        <div class="breakdown__row breakdown__row--total">
+            <span class="breakdown__label">Útborgun (nettó)</span>
+            <span class="breakdown__amount">{{ "{:,.0f}".format(breakdown.net).replace(",", ".") }} kr</span>
+        </div>
+        <div class="breakdown__summary">
+            Heildarfrádráttur: {{ '{:.1f}'.format(breakdown.deduction_rate * 100).replace('.', ',') }}% af brúttólaunum
+        </div>
+    </div>
+
+    {% if raise_insight %}
+    <div class="insight-box">
+        <span class="insight-box__amount">50.000 kr launahækkun = ~{{ "{:,.0f}".format(raise_insight).replace(",", ".") }} kr</span>
+        <span class="insight-box__text">meira í vasann á mánuði</span>
+    </div>
+    {% endif %}
+
+    {# ==================== SECTION 2: Where You Stand ==================== #}
+    {% if percentile is not none %}
+    <div class="position-bar-wrap" style="margin-top: 2.5rem;">
+        <div class="results-block__header">Hvar stendur þú?</div>
+        <div class="position-bar" style="margin-top: 1rem;">
+            <div class="position-bar__track">
+                <div class="position-bar__fill" style="width: {{ percentile }}%;"></div>
+                <div class="position-bar__marker" style="left: {{ percentile }}%;">
+                    <span class="position-bar__label">Þú</span>
+                </div>
+            </div>
+            <div class="position-bar__ends">
+                <span>Lægst</span>
+                <span>Hæst</span>
+            </div>
+        </div>
+        <div class="position-bar__result">
+            <span class="position-bar__pct">{{ percentile }}%</span>
+            <span class="position-bar__text">Launin þín eru hærri en miðgildi <strong>{{ percentile }}%</strong> starfsstétta</span>
+        </div>
+        <div class="position-bar__source">{{ total_occupations }} starfsstéttir · Hagstofa Íslands 2024 · Heildarlaun</div>
+    </div>
+    {% endif %}
+
+    {# ==================== Occupation Comparison ==================== #}
+    <div class="calc-occupation-compare" style="margin-top: 2rem;">
+        <div class="results-block__header">Bera saman við starfsstétt</div>
+        <form method="get" action="/reiknivel" class="calc-occupation-form">
+            <input type="hidden" name="salary" value="{{ salary }}">
+            {% if spigg %}<input type="hidden" name="spigg" value="{{ spigg }}">{% endif %}
+            {% if felag %}<input type="hidden" name="felag" value="{{ felag }}">{% endif %}
+            <select name="isco" class="calc-occupation-select" onchange="this.form.submit()">
+                <option value="">Veldu starfsstétt...</option>
+                {% for occ in occupations %}
+                <option value="{{ occ.isco_code }}" {% if occupation and occupation.isco_code == occ.isco_code %}selected{% endif %}>
+                    {{ occ.occupation_name }} — {{ "{:,.0f}".format(occ.median).replace(",", ".") }} kr
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if occupation %}
+        <div class="occ-detail">
+            <div class="occ-detail__name">{{ occupation.display_name }}</div>
+            <div class="occ-detail__stats">
+                {% if occupation.p25 and occupation.median and occupation.p75 %}
+                <div class="occ-stat">
+                    <span class="occ-stat__label">P25</span>
+                    <span class="occ-stat__value">{{ "{:,.0f}".format(occupation.p25).replace(",", ".") }}</span>
+                </div>
+                <div class="occ-stat occ-stat--primary">
+                    <span class="occ-stat__label">Miðgildi</span>
+                    <span class="occ-stat__value">{{ "{:,.0f}".format(occupation.median).replace(",", ".") }}</span>
+                </div>
+                <div class="occ-stat">
+                    <span class="occ-stat__label">P75</span>
+                    <span class="occ-stat__value">{{ "{:,.0f}".format(occupation.p75).replace(",", ".") }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% if occupation.median %}
+            <div class="occ-detail__compare">
+                {% set diff = salary - occupation.median %}
+                {% if diff > 0 %}
+                <span class="occ-compare--above">+{{ "{:,.0f}".format(diff).replace(",", ".") }} kr yfir miðgildi</span>
+                {% elif diff < 0 %}
+                <span class="occ-compare--below">{{ "{:,.0f}".format(diff).replace(",", ".") }} kr undir miðgildi</span>
+                {% else %}
+                <span>Nákvæmlega á miðgildi</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="occ-detail__source">Hagstofa Íslands 2024 · Heildarlaun (grunnlaun + yfirvinna)</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Salary input formatting (Icelandic thousands separator)
+const display = document.getElementById('salary-display');
+const hidden = document.getElementById('salary-value');
+if (display && hidden) {
+    display.addEventListener('input', function() {
+        const raw = this.value.replace(/\D/g, '');
+        hidden.value = raw;
+        if (raw) {
+            this.value = parseInt(raw).toLocaleString('de-DE');
+        }
+    });
+    display.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const raw = this.value.replace(/\D/g, '');
+            hidden.value = raw;
+        }
+    });
+}
+</script>
+{% endblock %}
