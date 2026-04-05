@@ -99,6 +99,29 @@
     </div>
     {% endif %}
 
+    {# ==================== Expenses: What's Left ==================== #}
+    <div class="expenses" id="expenses-section">
+        <div class="expenses__header">Hvað er eftir?</div>
+        <div class="expenses__grid">
+            <span class="expenses__label">Húsnæði</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="housing">
+            <span class="expenses__label">Bíll og samgöngur</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="transport">
+            <span class="expenses__label">Matur og dagvörur</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="food">
+            <span class="expenses__label">Tryggingar</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="insurance">
+            <span class="expenses__label">Símar og internet</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="telecom">
+            <span class="expenses__label">Annað</span>
+            <input type="text" inputmode="numeric" class="expenses__input expense-field" placeholder="0" data-key="other">
+            <div class="expenses__result">
+                <span class="expenses__result-label">Eftirstöðvar</span>
+                <span class="expenses__result-amount" id="expenses-remainder">{{ "{:,.0f}".format(breakdown.net).replace(",", ".") }} kr</span>
+            </div>
+        </div>
+    </div>
+
     {# ==================== SECTION 2: Where You Stand ==================== #}
     {% if percentile is not none %}
     <div class="position-bar-wrap" style="margin-top: 2.5rem;">
@@ -197,5 +220,36 @@ if (display && hidden) {
         }
     });
 }
+
+// Expenses calculator
+(function() {
+    const net = {{ breakdown.net if breakdown else 0 }};
+    const fields = document.querySelectorAll('.expense-field');
+    const remainder = document.getElementById('expenses-remainder');
+    if (!fields.length || !remainder) return;
+
+    function fmt(n) {
+        return Math.abs(n).toLocaleString('de-DE') + ' kr';
+    }
+
+    function update() {
+        let total = 0;
+        fields.forEach(f => {
+            total += parseInt(f.value.replace(/\D/g, '') || '0');
+        });
+        const left = net - total;
+        remainder.textContent = (left < 0 ? '−' : '') + fmt(left);
+        remainder.className = 'expenses__result-amount ' +
+            (left >= 0 ? 'expenses__result-amount--positive' : 'expenses__result-amount--negative');
+    }
+
+    fields.forEach(f => {
+        f.addEventListener('input', function() {
+            const raw = this.value.replace(/\D/g, '');
+            if (raw) this.value = parseInt(raw).toLocaleString('de-DE');
+            update();
+        });
+    });
+})();
 </script>
 {% endblock %}
