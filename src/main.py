@@ -474,6 +474,7 @@ async def reiknivel(
     isco: Optional[str] = None,
     spigg: Optional[int] = None,
     felag: Optional[str] = None,
+    laun: Optional[str] = None,
 ):
     """Take-home salary calculator (launareiknivél)."""
     from .tax import calculate_net_salary
@@ -483,8 +484,11 @@ async def reiknivel(
     occupation = None
     percentile = None
 
+    # Salary type toggle (heildarlaun vs grunnlaun)
+    salary_type = "grunnlaun" if laun == "grunnlaun" else "heildarlaun"
+
     # Load occupations and unions for selectors
-    all_occupations = database.get_all_occupations_flat(year=2024, salary_type="heildarlaun")
+    all_occupations = database.get_all_occupations_flat(year=2024, salary_type=salary_type)
     unions = database.get_all_unions()
 
     # Convert user-facing params to decimals
@@ -513,11 +517,15 @@ async def reiknivel(
 
     # Occupation detail if selected
     if isco:
-        occupation = database.get_occupation_by_isco(isco, year=2024)
+        occupation = database.get_occupation_by_isco(isco, year=2024, salary_type=salary_type)
         if occupation:
             occupation["display_name"] = re.sub(
                 r'^\d[\d\s*]*\s+', '', occupation.get("occupation_name", "")
             )
+
+    # Median + mean lists for "mean lies" section (sorted ascending)
+    occ_medians = sorted([o["median"] for o in all_occupations if o.get("median")])
+    occ_means = sorted([o["mean"] for o in all_occupations if o.get("mean")])
 
     return templates.TemplateResponse(
         "reiknivel.html",
@@ -526,6 +534,7 @@ async def reiknivel(
             "salary": salary,
             "spigg": spigg or 0,
             "felag": felag or "",
+            "laun": salary_type,
             "breakdown": breakdown,
             "raise_insight": raise_insight,
             "percentile": percentile,
@@ -533,6 +542,8 @@ async def reiknivel(
             "occupations": all_occupations,
             "unions": unions,
             "total_occupations": len(all_occupations),
+            "occ_medians_json": occ_medians,
+            "occ_means_json": occ_means,
         },
     )
 

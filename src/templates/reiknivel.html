@@ -49,6 +49,13 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="calc-option">
+                <label for="laun">Launategund</label>
+                <select name="laun" id="laun">
+                    <option value="heildarlaun" {% if laun == 'heildarlaun' %}selected{% endif %}>Heildarlaun</option>
+                    <option value="grunnlaun" {% if laun == 'grunnlaun' %}selected{% endif %}>Grunnlaun</option>
+                </select>
+            </div>
         </div>
     </form>
 </div>
@@ -194,9 +201,35 @@
                 {% endif %}
             </div>
             {% endif %}
-            <div class="occ-detail__source">Hagstofa Íslands 2024 · Heildarlaun (grunnlaun + yfirvinna)</div>
+            <div class="occ-detail__source">Hagstofa Íslands 2024 · {{ 'Heildarlaun (grunnlaun + yfirvinna)' if laun == 'heildarlaun' else 'Grunnlaun' }}</div>
         </div>
         {% endif %}
+    </div>
+
+    {# ==================== SECTION 3: The Mean Lies ==================== #}
+    <div class="mean-lies" style="margin-top: 2.5rem;">
+        <div class="results-block__header">Meðaltalið lýgur</div>
+        <p class="mean-lies__intro">Hálaunafólk dregur meðaltalið upp. Dragðu sleðann til að sjá hvað gerist þegar þú sleppir efstu launþegum.</p>
+        <div class="mean-lies__controls">
+            <label for="trim-slider" class="mean-lies__slider-label">Sleppa efstu <span id="trim-pct">0</span>%</label>
+            <input type="range" id="trim-slider" min="0" max="50" value="0" step="5" class="mean-lies__slider">
+        </div>
+        <div class="mean-lies__result">
+            <div class="mean-lies__stat">
+                <span class="mean-lies__stat-label">Meðaltal</span>
+                <span class="mean-lies__stat-value" id="trimmed-mean">—</span>
+            </div>
+            <div class="mean-lies__stat">
+                <span class="mean-lies__stat-label">Miðgildi</span>
+                <span class="mean-lies__stat-value" id="trimmed-median">—</span>
+            </div>
+            <div class="mean-lies__stat">
+                <span class="mean-lies__stat-label">Munur</span>
+                <span class="mean-lies__stat-value" id="mean-median-diff">—</span>
+            </div>
+        </div>
+        <div class="mean-lies__insight" id="mean-lies-insight"></div>
+        <div class="position-bar__source">{{ total_occupations }} starfsstéttir · Hagstofa Íslands 2024 · {{ 'Heildarlaun' if laun == 'heildarlaun' else 'Grunnlaun' }}</div>
     </div>
 </div>
 {% endif %}
@@ -220,6 +253,59 @@ if (display && hidden) {
         }
     });
 }
+
+// Mean lies — trimmed mean calculator
+(function() {
+    const medians = {{ occ_medians_json | tojson }};
+    const means = {{ occ_means_json | tojson }};
+    const slider = document.getElementById('trim-slider');
+    const pctLabel = document.getElementById('trim-pct');
+    const meanEl = document.getElementById('trimmed-mean');
+    const medianEl = document.getElementById('trimmed-median');
+    const diffEl = document.getElementById('mean-median-diff');
+    const insightEl = document.getElementById('mean-lies-insight');
+    if (!slider || !medians.length) return;
+
+    function fmt(n) { return Math.round(n).toLocaleString('de-DE') + ' kr'; }
+
+    function avg(arr) {
+        if (!arr.length) return 0;
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    function median(arr) {
+        if (!arr.length) return 0;
+        const mid = Math.floor(arr.length / 2);
+        return arr.length % 2 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
+    }
+
+    function update() {
+        const pct = parseInt(slider.value);
+        pctLabel.textContent = pct;
+        const cutoff = Math.floor(medians.length * (1 - pct / 100));
+        const trimmedMedians = medians.slice(0, cutoff);
+        const trimmedMeans = means.slice(0, Math.floor(means.length * (1 - pct / 100)));
+
+        const m = avg(trimmedMeans.length ? trimmedMeans : trimmedMedians);
+        const med = median(trimmedMedians);
+        const diff = m - med;
+
+        meanEl.textContent = fmt(m);
+        medianEl.textContent = fmt(med);
+        diffEl.textContent = (diff > 0 ? '+' : '') + fmt(diff);
+
+        if (pct === 0) {
+            insightEl.textContent = 'Meðaltalið er ' + fmt(diff) + ' hærra en miðgildið — hálaunafólk dregur það upp.';
+        } else {
+            const fullMean = avg(means.length ? means : medians);
+            const drop = fullMean - m;
+            insightEl.textContent = 'Án efstu ' + pct + '% lækkar meðaltalið um ' + fmt(drop) + '.';
+        }
+    }
+
+    slider.addEventListener('input', update);
+    update();
+})();
 
 // Expenses calculator
 (function() {
