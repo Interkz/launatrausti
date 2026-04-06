@@ -471,59 +471,96 @@ async def api_unions():
 async def reiknivel(
     request: Request,
     salary: Optional[int] = None,
-    isco: Optional[str] = None,
+    target: Optional[int] = None,
+    savings: Optional[int] = None,
     spigg: Optional[int] = None,
     felag: Optional[str] = None,
     laun: Optional[str] = None,
 ):
-    """Take-home salary calculator (launareiknivél)."""
+    """Goal-oriented salary planner — where to work to earn more."""
     from .tax import calculate_net_salary
 
-    breakdown = None
-    raise_insight = None
-    occupation = None
-    percentile = None
+    current_breakdown = None
+    target_breakdown = None
+    net_diff = None
+    new_monthly_savings = None
+    savings_delta_yearly = None
+    current_percentile = None
+    target_percentile = None
+    target_occupations = []
+    target_companies = []
+    target_jobs = []
 
-    # Salary type toggle (heildarlaun vs grunnlaun)
+    # Salary type toggle
     salary_type = "grunnlaun" if laun == "grunnlaun" else "heildarlaun"
 
-    # Load occupations and unions for selectors
+    # Load data
     all_occupations = database.get_all_occupations_flat(year=2024, salary_type=salary_type)
     unions = database.get_all_unions()
+    all_medians = [o.get("median") for o in all_occupations if o.get("median")]
 
-    # Convert user-facing params to decimals
+    # Deduction params
     supp_pct = (spigg / 100.0) if spigg and 0 < spigg <= 4 else 0.0
-
-    # Look up union fee if specified
-    union_fee_pct = 0.007  # default VR rate
+    union_fee_pct = 0.007
     if felag:
         for u in unions:
             if u.get("name") == felag and u.get("fee_pct"):
                 union_fee_pct = u["fee_pct"]
                 break
 
+    # Current salary breakdown
     if salary and salary > 0:
-        breakdown = calculate_net_salary(salary, supp_pct, union_fee_pct)
-
-        # Raise insight: how much more in pocket from +50k gross
-        raised = calculate_net_salary(salary + 50_000, supp_pct, union_fee_pct)
-        raise_insight = raised.net - breakdown.net
-
-        # Cross-occupation percentile
-        all_medians = [o.get("median") for o in all_occupations if o.get("median")]
+        current_breakdown = calculate_net_salary(salary, supp_pct, union_fee_pct)
         if all_medians:
             below = sum(1 for m in all_medians if m < salary)
-            percentile = round(below / len(all_medians) * 100)
+            current_percentile = round(below / len(all_medians) * 100)
 
-    # Occupation detail if selected
-    if isco:
-        occupation = database.get_occupation_by_isco(isco, year=2024, salary_type=salary_type)
-        if occupation:
-            occupation["display_name"] = re.sub(
-                r'^\d[\d\s*]*\s+', '', occupation.get("occupation_name", "")
-            )
+    # Target salary breakdown
+    if target and target > 0:
+        target_breakdown = calculate_net_salary(target, supp_pct, union_fee_pct)
+        if all_medians:
+            below = sum(1 for m in all_medians if m < target)
+            target_percentile = round(below / len(all_medians) * 100)
 
-    # Median + mean lists for "mean lies" section (sorted ascending)
+    # Gap analysis
+    if current_breakdown and target_breakdown:
+        net_diff = target_breakdown.net - current_breakdown.net
+
+        # Savings projection
+        monthly_savings = savings if savings and savings >= 0 else 0
+        new_monthly_savings = monthly_savings + net_diff
+        savings_delta_yearly = net_diff * 12
+
+    # Where to earn target salary — occupations, companies, jobs
+    match_salary = target if target and target > 0 else (salary if salary and salary > 0 else None)
+    if match_salary:
+        # Occupations where median is within ±15%
+        for occ in all_occupations:
+            med = occ.get("median")
+            if med and abs(med - match_salary) / match_salary < 0.20:
+                occ["display_name"] = re.sub(r'^\d[\d\s*]*\s+', '', occ.get("occupation_name", ""))
+                occ["distance"] = abs(med - match_salary)
+                target_occupations.append(occ)
+        target_occupations.sort(key=lambda o: o["distance"])
+        target_occupations = target_occupations[:10]
+
+        # Companies near target
+        target_companies = database.get_companies_near_salary(match_salary, window=200_000, limit=10)
+
+        # Quality job listings near target
+        margin = int(match_salary * 0.20)
+        all_target_jobs = database.get_active_jobs(
+            salary_min=match_salary - margin,
+            salary_max=match_salary + margin,
+            sort="salary",
+            limit=30,
+        )
+        target_jobs = [j for j in all_target_jobs if j.get("salary_source") != "national_avg"][:10]
+        # Fall back to any source if no quality matches
+        if not target_jobs:
+            target_jobs = all_target_jobs[:10]
+
+    # Mean-lies data
     occ_medians = sorted([o["median"] for o in all_occupations if o.get("median")])
     occ_means = sorted([o["mean"] for o in all_occupations if o.get("mean")])
 
@@ -532,13 +569,22 @@ async def reiknivel(
         {
             "request": request,
             "salary": salary,
+            "target": target,
+            "savings": savings,
             "spigg": spigg or 0,
             "felag": felag or "",
             "laun": salary_type,
-            "breakdown": breakdown,
-            "raise_insight": raise_insight,
-            "percentile": percentile,
-            "occupation": occupation,
+            "current_breakdown": current_breakdown,
+            "target_breakdown": target_breakdown,
+            "net_diff": net_diff,
+            "new_monthly_savings": new_monthly_savings,
+            "savings_delta_yearly": savings_delta_yearly,
+            "current_percentile": current_percentile,
+            "target_percentile": target_percentile,
+            "target_occupations": target_occupations,
+            "target_companies": target_companies,
+            "target_jobs": target_jobs,
+            "match_salary": match_salary,
             "occupations": all_occupations,
             "unions": unions,
             "total_occupations": len(all_occupations),

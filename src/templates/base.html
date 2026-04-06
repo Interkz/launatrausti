@@ -1180,6 +1180,32 @@
             border-radius: 0;
         }
 
+        /* Hero: three input fields */
+        .hero__input-group {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            max-width: 680px;
+        }
+        .hero__field {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .hero__field-label {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+            text-align: left;
+        }
+        .hero__input-wrap--target {
+            border-color: var(--gold) !important;
+        }
+
+        /* Single-salary breakdown (backward compat) */
         .breakdown {
             max-width: 520px;
             margin: 0 auto;
@@ -1239,144 +1265,209 @@
             background: var(--lumon-paper);
         }
 
-        .insight-box {
-            max-width: 520px;
+        /* Side-by-side comparison */
+        .comparison {
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid var(--lumon-grid);
+            background: var(--lumon-white);
+        }
+        .comparison__header, .comparison__row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.5rem 1.25rem;
+            align-items: baseline;
+        }
+        .comparison__header {
+            border-bottom: 1px solid var(--lumon-grid);
+            padding-bottom: 0.375rem;
+        }
+        .comparison__col-label {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+            text-align: right;
+        }
+        .comparison__col-label--target { color: var(--gold); }
+        .comparison__row {
+            border-bottom: 1px solid var(--lumon-border);
+        }
+        .comparison__label {
+            font-family: var(--font-sans);
+            font-size: 0.8125rem;
+        }
+        .comparison__amount {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .comparison__amount--dim {
+            font-weight: 400;
+            color: var(--lumon-text-secondary);
+        }
+        .comparison__amount--target { color: var(--gold); }
+        .comparison__row--total {
+            border-bottom: 1px solid var(--lumon-border);
+            border-top: 2px solid var(--lumon-green);
+            background: var(--lumon-paper);
+        }
+        .comparison__row--total .comparison__label {
+            font-weight: 700;
+            color: var(--lumon-green);
+        }
+        .comparison__row--total .comparison__amount {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .comparison__row--deduction-rate {
+            border-bottom: none;
+        }
+
+        /* Net diff callout */
+        .net-diff-box {
+            max-width: 600px;
             margin: 1rem auto 0;
-            padding: 0.875rem 1.25rem;
+            padding: 1rem 1.25rem;
             border: 1px solid var(--gold-border);
             background: var(--gold-light);
             text-align: center;
         }
-        .insight-box__amount {
+        .net-diff-box__amount {
             display: block;
             font-family: var(--font-mono);
-            font-size: 0.9375rem;
-            font-weight: 600;
+            font-size: 1.25rem;
+            font-weight: 700;
             color: var(--gold);
         }
-        .insight-box__text {
+        .net-diff-box__text {
             font-family: var(--font-sans);
             font-size: 0.8125rem;
             color: var(--lumon-text-secondary);
         }
 
-        .calc-occupation-form { margin-top: 0.75rem; }
-        .calc-occupation-select {
-            width: 100%;
-            font-family: var(--font-sans);
-            font-size: 0.875rem;
-            padding: 0.5rem;
-            border: 1px solid var(--lumon-grid);
-            background: var(--lumon-white);
-            color: var(--lumon-black);
+        /* Savings projection */
+        .savings-projection {
+            max-width: 600px;
+            margin: 2rem auto 0;
         }
-
-        .occ-detail {
-            margin-top: 1rem;
+        .savings-projection__grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 0.75rem;
+        }
+        .savings-projection__col {
+            text-align: center;
             padding: 1rem 1.25rem;
             border: 1px solid var(--lumon-grid);
             background: var(--lumon-white);
+            flex: 1;
         }
-        .occ-detail__name {
-            font-family: var(--font-display);
-            font-size: 1.125rem;
-            color: var(--lumon-green);
-            margin-bottom: 0.75rem;
+        .savings-projection__col--target {
+            border-color: var(--gold);
         }
-        .occ-detail__stats {
-            display: flex;
-            gap: 2rem;
-            justify-content: center;
-            margin-bottom: 0.75rem;
-        }
-        .occ-stat {
-            text-align: center;
-        }
-        .occ-stat__label {
+        .savings-projection__label {
             display: block;
             font-family: var(--font-mono);
             font-size: 0.625rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: var(--lumon-text-secondary);
-            margin-bottom: 0.25rem;
-        }
-        .occ-stat__value {
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--lumon-black);
-        }
-        .occ-stat--primary .occ-stat__value {
-            font-size: 1.25rem;
-            color: var(--lumon-green);
-        }
-        .occ-detail__compare {
-            text-align: center;
-            font-family: var(--font-mono);
-            font-size: 0.875rem;
-            font-weight: 600;
             margin-bottom: 0.5rem;
         }
-        .occ-compare--above { color: var(--salary-high); }
-        .occ-compare--below { color: var(--salary-low); }
-
-        /* Expenses calculator */
-        .expenses {
-            max-width: 520px;
-            margin: 2rem auto 0;
-        }
-        .expenses__header {
-            font-family: var(--font-display);
-            font-size: 1.125rem;
-            color: var(--lumon-green);
-            margin-bottom: 0.75rem;
-        }
-        .expenses__grid {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 0.5rem 0.75rem;
-            align-items: center;
-        }
-        .expenses__label {
-            font-family: var(--font-sans);
-            font-size: 0.875rem;
-        }
-        .expenses__input {
+        .savings-projection__monthly {
+            display: block;
             font-family: var(--font-mono);
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.375rem 0.5rem;
-            border: 1px solid var(--lumon-grid);
-            background: var(--lumon-white);
+            font-size: 1.125rem;
+            font-weight: 700;
             color: var(--lumon-black);
-            text-align: right;
-            width: 140px;
         }
-        .expenses__input::placeholder { color: var(--lumon-grid); }
-        .expenses__result {
-            grid-column: 1 / -1;
+        .savings-projection__col--target .savings-projection__monthly {
+            color: var(--gold);
+        }
+        .savings-projection__yearly {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--lumon-text-secondary);
+            margin-top: 0.25rem;
+        }
+        .savings-projection__arrow {
+            font-size: 1.5rem;
+            color: var(--lumon-text-secondary);
+        }
+        .savings-projection__delta {
+            text-align: center;
             margin-top: 0.75rem;
-            padding: 0.875rem 1.25rem;
-            border-top: 2px solid var(--lumon-green);
-            background: var(--lumon-paper);
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--salary-high);
+        }
+
+        /* Target matches — where to earn */
+        .target-matches {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .target-matches__section {
+            margin-top: 1rem;
+        }
+        .target-matches__subheader {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lumon-text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        .target-match {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
+            padding: 0.625rem 1rem;
+            border: 1px solid var(--lumon-border);
+            border-bottom: none;
+            background: var(--lumon-white);
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.15s;
         }
-        .expenses__result-label {
+        .target-match:last-child { border-bottom: 1px solid var(--lumon-border); }
+        .target-match:hover { background: var(--lumon-paper); }
+        .target-match__name {
             font-family: var(--font-sans);
-            font-size: 0.9375rem;
-            font-weight: 700;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .target-match__detail {
+            text-align: right;
+        }
+        .target-match__salary {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 600;
             color: var(--lumon-green);
         }
-        .expenses__result-amount {
+        .target-match__meta {
+            display: block;
             font-family: var(--font-mono);
-            font-size: 1.125rem;
-            font-weight: 600;
+            font-size: 0.625rem;
+            color: var(--lumon-text-secondary);
         }
-        .expenses__result-amount--positive { color: var(--salary-high); }
-        .expenses__result-amount--negative { color: var(--salary-low); }
+
+        /* Dual position bar marker */
+        .position-bar__marker--target {
+            background: var(--gold);
+        }
+        .position-bar__marker--target .position-bar__label {
+            color: var(--gold);
+        }
 
         /* Mean lies section */
         .mean-lies__intro {
@@ -1439,13 +1530,6 @@
             text-align: center;
             margin-bottom: 0.5rem;
         }
-        .occ-detail__source {
-            text-align: center;
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            color: var(--lumon-text-secondary);
-            letter-spacing: 0.05em;
-        }
 
         @media (max-width: 600px) {
             .hero { padding: 2.5rem 0.5rem 2rem; margin: -2rem -1rem 1.5rem -1rem; }
@@ -1453,10 +1537,16 @@
             .hero__input-wrap { flex-wrap: wrap; }
             .hero__input { font-size: 1.25rem; }
             .hero__button { width: 100%; }
+            .hero__input-group { flex-direction: column; }
             .percentile-banner__number { font-size: 3rem; }
             .calc-options { flex-direction: column; gap: 0.75rem; }
-            .occ-detail__stats { gap: 1rem; }
             .breakdown__row { padding: 0.5rem 0.75rem; }
+            .comparison__header, .comparison__row { padding: 0.5rem 0.75rem; }
+            .comparison__label { font-size: 0.75rem; }
+            .comparison__amount { font-size: 0.8125rem; }
+            .savings-projection__grid { flex-direction: column; gap: 0.75rem; }
+            .savings-projection__arrow { transform: rotate(90deg); }
+            .target-match__name { font-size: 0.8125rem; }
         }
     </style>
 </head>
